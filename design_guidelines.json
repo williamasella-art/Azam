@@ -1,0 +1,189 @@
+{
+  "app_name": "Azam-App Blocker",
+  "personality": "1 iOS-Native Clean",
+  "personality_one_liner": "An inviting, lightweight, and modern spiritual productivity tool that feels frictionless and uplifting.",
+  "color": {
+    "surface": "#FFFFFF",
+    "onSurface": "#0F172A",
+    "surfaceSecondary": "#F8FAFC",
+    "onSurfaceSecondary": "#334155",
+    "surfaceTertiary": "#F1F5F9",
+    "onSurfaceTertiary": "#475569",
+    "surfaceInverse": "#0F172A",
+    "onSurfaceInverse": "#FFFFFF",
+    "brand": "#38BDF8",
+    "brandPrimary": "#0EA5E9",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#E0F2FE",
+    "onBrandSecondary": "#0284C7",
+    "brandTertiary": "#BAE6FD",
+    "onBrandTertiary": "#0369A1",
+    "success": "#10B981",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#FFFFFF",
+    "error": "#EF4444",
+    "onError": "#FFFFFF",
+    "info": "#0EA5E9",
+    "onInfo": "#FFFFFF",
+    "border": "#E2E8F0",
+    "borderStrong": "#CBD5E1",
+    "divider": "#F1F5F9",
+    "muted": "#94A3B8",
+    "onBrand": "#FFFFFF"
+  },
+  "typography": {
+    "displayFontFamily": "Plus Jakarta Sans",
+    "textFontFamily": "Plus Jakarta Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous spacing. Clear padding between groups. Avoid dense dash-boarding.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": 1,
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use blur on bottom tab bar.",
+      "Use soft frosted overlay on the Next Prayer featured card.",
+      "Use blur for the active blocker modal over the blurred background."
+    ],
+    "dont's": [
+      "Don't blur form inputs.",
+      "Don't stack more than 2 blurred surfaces.",
+      "Don't use it on simple list items."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-blur",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Onboarding",
+      "purpose": "Introduce the app, Google/Guest login, and demonstrate the App Blocker and required permissions.",
+      "states": {
+        "loading": "Spinner during auth.",
+        "empty": "N/A",
+        "error": "Failed auth message."
+      },
+      "layout": "Full-bleed onboarding scenes. Use a simple stack with descriptive text and an illustration. Final slide has a button to trigger the 'Demo Blocker', showing exactly how the App Blocker works. Sticky CTA at the bottom."
+    },
+    {
+      "name": "Home",
+      "purpose": "Dashboard showing next prayer time, daily ayat, and quick actions.",
+      "states": {
+        "loading": "Skeleton over prayer times.",
+        "empty": "No location set -> Prompt to set location.",
+        "error": "Failed to fetch prayer times -> Retry button."
+      },
+      "layout": "Header with settings icon. Hero card for 'Next Prayer' countdown (with frosted glass over blue sky background). Below hero: 2-column grid for quick links (Quran, Qibla). Below grid: 'Ayat of the Day' card."
+    },
+    {
+      "name": "QuranFull",
+      "purpose": "Read the full Quran with Indonesian translation.",
+      "states": {
+        "loading": "Centered spinner fetching Surahs.",
+        "empty": "No search results for Surah.",
+        "error": "Failed to load text."
+      },
+      "layout": "Search bar at top. Simple vertical list of Surahs. On tap, navigates to reader view. Reader view is minimalist: Arabic text on top, translation below it, generously spaced."
+    },
+    {
+      "name": "Qibla",
+      "purpose": "Compass pointing to Qibla with automatic or manual location input.",
+      "states": {
+        "loading": "Locating GPS...",
+        "empty": "Awaiting manual location input.",
+        "error": "Compass sensor unavailable."
+      },
+      "layout": "Large minimal compass visual in the center. Location toggle (Auto/Manual) below it. Simple, distraction-free screen."
+    },
+    {
+      "name": "StreakAchievements",
+      "purpose": "Display prayer winstreak, calendar, and levels (Awan, Bintang, Purnama, Syams).",
+      "states": {
+        "loading": "Loading user stats.",
+        "empty": "No streaks yet -> encouraging message.",
+        "error": "Failed to load streaks."
+      },
+      "layout": "Hero area shows current level (e.g., 'Level Awan' with animated SVG icon). Below: horizontal calendar row showing recent days. Below: 'Share to Medsos' button and progress bar to next level."
+    },
+    {
+      "name": "Settings",
+      "purpose": "Configuration, Ads setup, and Pro Feature previews.",
+      "states": {
+        "loading": "N/A",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "List of settings items grouped by category. A prominent 'Premium Features' card that showcases Dark Theme, Rakaat Counter, Widgets, and Rain Sounds."
+    },
+    {
+      "name": "ActiveBlockerModal",
+      "purpose": "The actual blocking screen that interrupts user when Azan is active.",
+      "states": {
+        "loading": "N/A",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "Full-screen modal. Blurred background. Center text: 'Waktunya Sholat' (Time to pray). A large 'Hold to Say Alhamdulillah' button (long press required) and a small 'Ingatkan Nanti' (Remind me later) text button at the bottom."
+    }
+  ],
+  "images": {
+    "hero_background": {
+      "url": "https://images.unsplash.com/photo-1618005479492-bc36dc8aeaf2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwyfHxtaW5pbWFsaXN0JTIwYmx1ZSUyMHNreSUyMGNsb3VkcyUyMGlsbHVzdHJhdGlvbnxlbnwwfHx8fDE3ODkzODQyMzF8MA&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1483401757487-2ced3fa77952?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwxfHxzdGFycnklMjBuaWdodCUyMHNreSUyMG1pbmltYWwlMjBpbGx1c3RyYXRpb258ZW58MHx8fHwxNzg5Mzg0MjUwfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract minimalist sky background"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the color palette. Light blue (brandPrimary: #0EA5E9) is explicitly allowed by the prompt as it was a literal request by the user ('biru muda').",
+    "For the UI, keep it 'simpel dan ringan' (simple and lightweight) using the '1 iOS-Native Clean' personality. Generous padding, rounded corners, clean sans-serif typography (Plus Jakarta Sans).",
+    "Build a custom 'Hold to Dismiss' button in ActiveBlockerModal using GestureHandler to simulate the 'Saying Alhamdulillah' verification requirement for MVP. This handles the 'harus ditekan lama baru hilang' (must be long-pressed to dismiss) requirement.",
+    "Implement the 'Awan, Bintang, Purnama, Syams' achievement icons using React Native SVG to keep the app lightweight, avoiding external image dependencies where possible (as requested). Only use the provided Unsplash backgrounds for the Home hero or Settings Pro banner.",
+    "Ensure dark mode is fully built out but framed as a 'Pro Feature' preview in the Settings page.",
+    "The App Blocker must have a 'Demo' button in the onboarding so users can experience the blocking UI and the long-press dismiss mechanism before enabling it.",
+    "For the Qibla compass, include both automatic (device sensor) and manual input fallbacks as specified.",
+    "For the Quran feature, include full text and Indonesian translations, ensuring proper RTL support for Arabic text and a clean typography hierarchy.",
+    "For the calendar and streak page, use a horizontal or grid layout that clearly shows missing days ('bolong-bolong') and allows sharing progress to social media ('bagikan ke medsos')."
+  ],
+  "haptics": {
+    "events": {
+      "primary_button_press": "light",
+      "tab_selection": "selection",
+      "blocker_hold_start": "medium",
+      "blocker_hold_success": "success",
+      "achievement_unlock": "success"
+    }
+  }
+}
