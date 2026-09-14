@@ -8,12 +8,16 @@ import { storage } from './utils/storage';
 import { setColorScheme } from './theme';
 
 WebBrowser.maybeCompleteAuthSession();
-export type ScreenName = 'home' | 'quran' | 'focus' | 'progress' | 'settings' | 'qibla' | 'achievements' | 'pro' | 'reader';
+export type ScreenName = 'home' | 'quran' | 'focus' | 'progress' | 'settings' | 'qibla' | 'achievements' | 'pro' | 'reader' | 'hajj';
+export const INTRO_KEY = 'azam-intro-done';
+export const INTRO_PREFS_KEY = 'azam-intro-prefs';
 const Context = createContext<any>(null);
 const exchanged = new Set<string>();
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [introDone, setIntroDone] = useState<boolean | null>(null);
+  const [showIntro, setShowIntro] = useState(false);
   const [authError, setAuthError] = useState('');
   const [settings, setSettings] = useState<any>(null);
   const settingsRef = useRef<any>(null);
@@ -37,8 +41,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const accept = useCallback(async (result: any) => {
     setToken(result.session_token);
     await storage.secureSet(TOKEN_KEY, result.session_token);
-    await loadSettings(); setUser(result.user); setScreen('home');
+    await loadSettings();
+    // Apply preferences captured during the pre-login guide (gender, reminder, location).
+    const prefs = await storage.getItem<any>(INTRO_PREFS_KEY, null);
+    if (prefs && !settingsRef.current?.onboarded) {
+      try {
+        const value = await api('/settings', { ...settingsRef.current, ...prefs, onboarded: true }, 'PUT');
+        settingsRef.current = value; setSettings(value);
+      } catch { /* Settings remain editable from the app. */ }
+    }
+    setUser(result.user); setScreen('home');
   }, [loadSettings]);
+  const finishIntro = useCallback(async (prefs: any) => {
+    await storage.setItem(INTRO_PREFS_KEY, prefs); await storage.setItem(INTRO_KEY, true);
+    setIntroDone(true); setShowIntro(false);
+    if (settingsRef.current) {
+      try {
+        const value = await api('/settings', { ...settingsRef.current, ...prefs, onboarded: true }, 'PUT');
+        settingsRef.current = value; setSettings(value);
+      } catch { /* Preferences stay local until next save. */ }
+    }
+  }, []);
   const handleUrl = useCallback(async (url: string) => {
     const match = url.match(/[?#&]session_id=([^&#]+)/);
     if (!match) return false;
@@ -60,6 +83,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     onUnauthorized(() => { setUser(null); setSettings(null); settingsRef.current = null; queryClient.clear(); });
     const listener = Linking.addEventListener('url', ({ url }) => { void handleUrl(url); });
     (async () => {
+      setIntroDone(!!(await storage.getItem(INTRO_KEY, false)));
       const initial = Platform.OS === 'web' ? window.location.href : await Linking.getInitialURL();
       if (initial && await handleUrl(initial)) return;
       try {
@@ -109,7 +133,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const tomorrowPrayers = useQuery({ queryKey: ['prayers', settings?.latitude, settings?.longitude, tomorrow], queryFn: () => api(`/prayers?latitude=${settings.latitude}&longitude=${settings.longitude}&day=${tomorrow}`).then(r => r.data), enabled: !!settings && afterLastPrayer });
   useEffect(() => {
     if (!user || !settings?.onboarded || !settings?.blocker_enabled || !settings.blocked_apps.length) return;
-    const prayer = prayers.data?.prayers.find((p: any) => p.time === localMinute && settings.blocked_prayers.includes(p.name));
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const nowMin = toMin(localMinute); const lead = settings.reminder_minutes ?? 10;
+    const prayer = prayers.data?.prayers.find((p: any) => { const diff = toMin(p.time) - nowMin; return diff >= 0 && diff <= lead && settings.blocked_prayers.includes(p.name); });
     const key = prayer ? `${user.user_id}:${day}:${prayer.name}` : '';
     if (key && lastBlocker.current !== key) {
       lastBlocker.current = key;
@@ -140,7 +166,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     notify('Pengingat demonstrasi muncul dalam 5 menit selama sesi Azam tetap terbuka.');
     snoozeTimer.current = setTimeout(() => setModal({ type: 'blocker' }), 5 * 60 * 1000);
   };
-  return <Context.Provider value={{ user, loading, authError, guest, google, logout, settings, updateSettings, screen, go, surah, read,
+  return <Context.Provider value={{ user, loading, authError, guest, google, logout, settings, updateSettings, screen, go, surah, read, introDone, showIntro, setShowIntro, finishIntro,
     toast, notify, modal, setModal, now, day, month, setMonth, progress, prayers, tomorrowPrayers, daily, checkin, checking, snooze }}>{children}</Context.Provider>;
 }
 export const useApp = () => useContext(Context);

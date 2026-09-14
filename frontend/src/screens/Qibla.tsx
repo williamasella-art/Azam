@@ -1,17 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import { Platform, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Image, Platform, View, useWindowDimensions } from 'react-native';
 import * as Location from 'expo-location';
-import Svg, { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg';
+import Slider from '@react-native-community/slider';
+import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
 import { useQuery } from '@tanstack/react-query';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useApp } from '@/src/AppContext';
 import { api } from '@/src/api';
 import { makeStyles, useTheme } from '@/src/theme';
+import { IMG } from '@/src/assets';
 import { Badge, Button, Card, Icon, Page, Status, T, Tap } from '@/src/components/ui';
+
+/** Unwraps a compass heading so the animation always takes the shortest path. */
+function unwrap(previous: number, next: number) { let delta = ((next - previous + 540) % 360) - 180; if (delta < -180) delta += 360; return previous + delta; }
 
 export function Qibla() {
   const { settings, setModal } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { width } = useWindowDimensions();
-  const [heading, setHeading] = useState<number | null>(null); const [accuracy, setAccuracy] = useState(0);
+  const [heading, setHeading] = useState<number | null>(null); const [accuracy, setAccuracy] = useState(0); const [simulated, setSimulated] = useState(0);
   const query = useQuery({ queryKey: ['qibla', settings.latitude, settings.longitude], queryFn: () => api(`/qibla?latitude=${settings.latitude}&longitude=${settings.longitude}`).then(r => r.data) });
+  const bearing = query.data?.bearing || 0;
+  const dial = useSharedValue(0); const needle = useSharedValue(0); const pulse = useSharedValue(1); const last = useRef(0);
+  const sensor = heading !== null;
+  const current = sensor ? heading : simulated;
+  useEffect(() => {
+    const target = unwrap(last.current, current); last.current = target;
+    dial.value = sensor ? withTiming(-target, { duration: 260, easing: Easing.out(Easing.cubic) }) : withSpring(-target, { damping: 16, stiffness: 70, mass: 0.8 });
+    needle.value = sensor ? withTiming(bearing - target, { duration: 260, easing: Easing.out(Easing.cubic) }) : withSpring(bearing - target, { damping: 16, stiffness: 70, mass: 0.8 });
+  }, [current, bearing, sensor, dial, needle]);
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null; let cancelled = false;
     (async () => {
@@ -23,30 +38,50 @@ export function Qibla() {
     })().catch(() => setHeading(null));
     return () => { cancelled = true; subscription?.remove(); };
   }, [settings.location_set, settings.latitude, settings.longitude]);
-  const bearing = query.data?.bearing || 0;
-  const rotation = bearing - (heading || 0);
-  const delta = Math.abs(((rotation + 540) % 360) - 180);
-  const aligned = heading !== null && accuracy >= 2 && delta <= 5;
-  const size = Math.min(width - 48, 350);
-  return <Page title="Arah kiblat" back="home" subtitle="Satu arah, menyatukan hati.">
-    <Tap testID="qibla-location-button" style={s.location} onPress={() => setModal({ type: 'location' })}><Icon name="location-outline" color={colors.onBrandSecondary} size={18} /><T size={13} weight="700" color={colors.onBrandSecondary}>{settings.city}</T><Icon name="chevron-down" color={colors.onBrandSecondary} size={15} /></Tap>
+  const delta = Math.abs(((bearing - current + 540) % 360) - 180);
+  const aligned = delta <= 5 && (!sensor || accuracy >= 2);
+  useEffect(() => { pulse.value = withSpring(aligned ? 1.06 : 1, { damping: 8 }); }, [aligned, pulse]);
+  const dialStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${dial.value}deg` }] }));
+  const needleStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${needle.value}deg` }] }));
+  const ringStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+  const size = Math.min(width - 60, 330); const half = size / 2;
+  return <Page title="Arah kiblat" subtitle="Satu arah, menyatukan hati.">
+    <Tap testID="qibla-location-button" style={s.location} onPress={() => setModal({ type: 'location' })}><Icon name="location" color={colors.brandTertiary} size={16} /><T size={13} weight="700">{settings.city}</T><Icon name="chevron-down" color={colors.muted} size={15} /></Tap>
     {query.isLoading || query.error ? <Status loading={query.isLoading} error={query.error} retry={query.refetch} /> : <>
-      <View style={s.compassWrap}><Badge text={heading === null ? 'ARAH DARI UTARA' : 'KOMPAS PERANGKAT'} icon="compass-outline" />
-        <Svg testID="qibla-compass" width={size} height={size} viewBox="0 0 340 340"><Circle cx="170" cy="170" r="163" fill={colors.brandSecondary} /><Circle cx="170" cy="170" r="143" fill={colors.surface} /><Circle cx="170" cy="170" r="115" stroke={colors.border} strokeWidth="1" fill={colors.surface} />
-          <G transform={`rotate(${-(heading || 0)} 170 170)`}>{Array.from({ length: 60 }, (_, i) => <Line key={i} x1="170" y1={i % 5 === 0 ? '34' : '38'} x2="170" y2={i % 5 === 0 ? '48' : '44'} transform={`rotate(${i * 6} 170 170)`} stroke={i % 5 === 0 ? colors.onBrandSecondary : colors.borderStrong} strokeWidth={i % 5 === 0 ? 2 : 1} />)}
-            {[['U', 170, 75], ['T', 270, 175], ['S', 170, 274], ['B', 70, 175]].map(([label, x, y]) => <SvgText key={String(label)} x={x} y={y} fill={label === 'U' ? colors.brandPrimary : colors.muted} fontSize="14" fontWeight="600" textAnchor="middle">{label}</SvgText>)}</G>
-          <G transform={`rotate(${rotation} 170 170)`}><Path d="M170 83 L188 170 170 155 152 170Z" fill={colors.brandPrimary} /><Path d="M170 250 L152 170 170 184 188 170Z" fill={colors.brandTertiary} /><Circle cx="170" cy="170" r="9" fill={colors.surface} stroke={colors.brandPrimary} strokeWidth="4" /><Path d="M162 58 L170 50 179 58 V69 H162Z" fill={colors.illustrationNavy} /><Line x1="162" y1="59" x2="179" y2="59" stroke={colors.warning} strokeWidth="3" /></G>
-        </Svg>
-        <T testID="qibla-bearing" size={39} weight="800" style={{ letterSpacing: -1.5 }}>{bearing.toFixed(1)}<T size={26} color={colors.brandPrimary}>°</T></T>
-        <T testID="qibla-sensor-status" size={13} weight="600" color={aligned ? colors.success : colors.onBrandSecondary}>{aligned ? 'Anda menghadap kiblat' : heading === null ? 'Se arah jarum jam dari utara sejati'.replace('Se arah', 'Searah') : 'Putar perangkat mengikuti jarum biru'}</T>
+      <View style={s.compassWrap}><Badge text={sensor ? 'KOMPAS PERANGKAT' : 'MODE SIMULASI · TANPA SENSOR'} icon="compass-outline" />
+        <View testID="qibla-compass" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+          <Animated.View style={[s.ring, { width: size, height: size, borderRadius: half, borderColor: aligned ? colors.success : colors.border }, ringStyle]} />
+          <Animated.View style={[{ position: 'absolute', width: size, height: size }, dialStyle]}>
+            <Svg width={size} height={size} viewBox="0 0 340 340"><Circle cx="170" cy="170" r="160" fill={colors.solid} /><Circle cx="170" cy="170" r="130" fill={colors.surfaceSecondary} />
+              {Array.from({ length: 72 }, (_, i) => <Line key={i} x1="170" y1={i % 6 === 0 ? '18' : '22'} x2="170" y2={i % 6 === 0 ? '36' : '30'} transform={`rotate(${i * 5} 170 170)`} stroke={i % 18 === 0 ? colors.brandTertiary : i % 6 === 0 ? colors.onSurfaceTertiary : colors.borderStrong} strokeWidth={i % 6 === 0 ? 2.5 : 1} strokeLinecap="round" />)}
+              {[['U', 170, 70], ['T', 275, 176], ['S', 170, 282], ['B', 65, 176]].map(([label, x, y]) => <SvgText key={String(label)} x={x} y={y} fill={label === 'U' ? colors.brandTertiary : colors.onSurfaceTertiary} fontSize="18" fontWeight="700" textAnchor="middle" fontFamily="Poppins-Bold">{label}</SvgText>)}
+              <G>{Array.from({ length: 8 }, (_, i) => <Circle key={i} cx="170" cy="120" r="2" fill={colors.muted} transform={`rotate(${i * 45 + 22.5} 170 170)`} />)}</G>
+            </Svg>
+          </Animated.View>
+          <Animated.View style={[{ position: 'absolute', width: size, height: size, alignItems: 'center' }, needleStyle]}>
+            <View style={[s.kaabaWrap, { top: size * 0.10 }]}><Image source={IMG.kaaba} style={s.kaaba} /></View>
+            <View style={[s.needle, { top: size * 0.10 + 52, height: half - size * 0.10 - 52, backgroundColor: aligned ? colors.success : colors.brandTertiary }]} />
+            <View style={[s.needleTail, { top: half, height: half * 0.36 }]} />
+          </Animated.View>
+          <View style={s.hub}><Icon name="navigate" size={18} color={colors.onBrandPrimary} /></View>
+        </View>
+        <T testID="qibla-bearing" size={40} weight="800" style={{ letterSpacing: -1.5 }}>{bearing.toFixed(1)}<T size={26} color={colors.brandTertiary}>°</T></T>
+        <T testID="qibla-sensor-status" size={13} weight="600" color={aligned ? colors.success : colors.onBrandSecondary}>{aligned ? 'Kamu menghadap kiblat ✓' : sensor ? 'Putar perangkat mengikuti Ka’bah' : `Kiblat ${bearing.toFixed(0)}° searah jarum jam dari utara`}</T>
         <T size={11} muted>{query.data.distance_km.toLocaleString('id-ID')} km menuju Ka’bah</T>
       </View>
-      <Card style={s.info}><Icon name="information-circle-outline" color={colors.onBrandSecondary} /><View style={{ flex: 1, gap: 5 }}><T size={13} weight="700">{heading === null ? 'Petunjuk arah manual' : 'Jaga kompas tetap akurat'}</T><T size={12} muted>{heading === null ? 'Sensor kompas belum tersedia di pratinjau ini. Gunakan kompas fisik untuk mencari sudut di atas dari utara sejati.' : 'Letakkan ponsel mendatar, jauhi benda logam, lalu gerakkan membentuk angka delapan untuk kalibrasi.'}</T>{heading !== null && accuracy < 2 && <T size={11} color={colors.warning}>Akurasi sensor rendah. Kalibrasikan sebelum mengikuti arah.</T>}</View></Card>
+      {!sensor && <Card style={s.sim}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icon name="game-controller-outline" size={18} color={colors.onBrandSecondary} /><T size={13} weight="700">Coba putar kompas</T><View style={{ flex: 1 }} /><T testID="qibla-simulated-heading" size={12} weight="700" color={colors.onBrandSecondary}>{Math.round(simulated)}°</T></View>
+        <Slider testID="qibla-simulation-slider" style={{ height: 40 }} minimumValue={0} maximumValue={359} step={1} value={simulated} onValueChange={setSimulated} minimumTrackTintColor={colors.brandPrimary} maximumTrackTintColor={colors.borderStrong} thumbTintColor={colors.brandTertiary} accessibilityLabel="Simulasi arah perangkat" />
+        <T size={11} muted>Sensor kompas tidak tersedia di pratinjau ini. Geser untuk melihat animasi; di ponsel, kompas mengikuti gerakan perangkat.</T></Card>}
+      {sensor && <Card style={s.sim}><Icon name="information-circle-outline" color={colors.onBrandSecondary} /><T size={12} muted>Letakkan ponsel mendatar, jauhi benda logam, lalu gerakkan membentuk angka delapan untuk kalibrasi.</T>{accuracy < 2 && <T size={11} color={colors.warning}>Akurasi sensor rendah. Kalibrasikan sebelum mengikuti arah.</T>}</Card>}
       <Button testID="qibla-manual-location-button" variant="secondary" title="Ubah lokasi otomatis / manual" icon="locate-outline" onPress={() => setModal({ type: 'location' })} />
     </>}
   </Page>;
 }
 const useStyles = makeStyles(c => ({
-  location: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 20, backgroundColor: c.brandSecondary, borderRadius: 15 },
-  compassWrap: { alignItems: 'center', gap: 9 }, info: { flexDirection: 'row', gap: 11, alignItems: 'flex-start', backgroundColor: c.brandSecondary, padding: 17 },
+  location: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 18, backgroundColor: c.glass, borderRadius: 15, borderWidth: 1, borderColor: c.border },
+  compassWrap: { alignItems: 'center', gap: 10 }, ring: { position: 'absolute', borderWidth: 3 },
+  kaabaWrap: { position: 'absolute', width: 52, height: 52, borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: c.gold }, kaaba: { width: '100%', height: '100%' },
+  needle: { position: 'absolute', width: 8, borderRadius: 4 }, needleTail: { position: 'absolute', width: 6, borderRadius: 3, backgroundColor: c.borderStrong },
+  hub: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.brandPrimary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: c.surfaceSecondary },
+  sim: { gap: 8 },
 }));

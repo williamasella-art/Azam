@@ -1,32 +1,58 @@
 import React from 'react';
-import { ScrollView, Switch, View } from 'react-native';
+import { Image, ImageBackground, Switch, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
-import { Badge, Button, Card, Icon, Page, Section, T, Tap } from '@/src/components/ui';
+import { IMG } from '@/src/assets';
+import { Badge, Button, Card, Icon, Page, T, Tap } from '@/src/components/ui';
+import { AmbientCard } from '@/src/components/AmbientCard';
+import { PRAYER_ICONS } from '@/src/components/SocialDemo';
 
+export const APPS: { name: string; icon: string; color: string }[] = [
+  { name: 'Instagram', icon: 'logo-instagram', color: 'instagram' }, { name: 'TikTok', icon: 'logo-tiktok', color: 'tiktok' }, { name: 'YouTube', icon: 'logo-youtube', color: 'youtube' },
+  { name: 'X', icon: 'logo-twitter', color: 'x' }, { name: 'Facebook', icon: 'logo-facebook', color: 'facebook' }, { name: 'Chrome', icon: 'logo-chrome', color: 'chrome' }, { name: 'Game', icon: 'game-controller', color: 'game' },
+];
 export function Focus() {
   const { settings, updateSettings, setModal, go } = useApp(); const s = useStyles(); const { colors } = useTheme();
   const togglePrayer = (name: string) => updateSettings({ blocked_prayers: settings.blocked_prayers.includes(name) ? settings.blocked_prayers.filter((p: string) => p !== name) : [...settings.blocked_prayers, name] });
-  return <Page title="Ruang fokus" subtitle="Jeda dari layar. Hadir dalam salat.">
-    <View style={s.hero}><View style={s.shieldCircle}><Icon name="shield-checkmark-outline" size={47} color={colors.onBrandSecondary} /></View><Badge text="DEMONSTRASI" /><T size={23} weight="800" style={s.center}>Dunia bisa menunggu.</T><T muted size={12} style={s.center}>Luangkan waktu untuk yang paling berarti.{"\n"}Mulai dengan satu jeda yang baik.</T></View>
-    <Card style={s.card}><View style={s.row}><View style={s.iconBox}><Icon name="lock-closed-outline" color={colors.onBrandSecondary} /></View><View style={{ flex: 1 }}><T weight="700" size={15}>Jeda aplikasi</T><T size={10} muted>{settings.blocker_enabled ? 'Preferensi demonstrasi aktif' : 'Atur waktu bebas distraksi'}</T></View><Switch testID="blocker-enabled-switch" value={settings.blocker_enabled} onValueChange={(value) => updateSettings({ blocker_enabled: value })} trackColor={{ false: colors.border, true: colors.brandPrimary }} thumbColor={colors.onBrandPrimary} /></View>
-      <T size={12} muted>Demonstrasi muncul pada waktu pilihan selama Azam terbuka dan aplikasi contoh dipilih. Aplikasi lain belum benar-benar diblokir.</T>
-      <Section title="Waktu jeda" />
-      <View style={s.chipRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chipContent}>{['Subuh', 'Zuhur', 'Asar', 'Magrib', 'Isya'].map(name => <Tap testID={`blocker-prayer-${name.toLowerCase()}`} key={name} onPress={() => togglePrayer(name)} style={[s.chip, settings.blocked_prayers.includes(name) && s.chipSelected]}><T weight="600" size={11} color={settings.blocked_prayers.includes(name) ? colors.onBrandSecondary : colors.onSurfaceTertiary}>{name}</T></Tap>)}</ScrollView></View>
-      <Tap testID="blocker-select-apps-button" style={s.selectRow} onPress={() => setModal({ type: 'apps' })}><Icon name="apps-outline" color={colors.onBrandSecondary} /><View style={{ flex: 1 }}><T weight="700" size={13}>Aplikasi pilihan</T><T size={11} muted>{settings.blocked_apps.length ? `${settings.blocked_apps.length} aplikasi contoh dipilih` : 'Pilih aplikasi untuk demonstrasi'}</T></View><Icon name="chevron-forward" size={18} color={colors.muted} /></Tap>
-      <Button testID="blocker-demo-button" title="Coba jeda salat" icon="play-outline" onPress={() => setModal({ type: 'blocker' })} />
+  const toggleApp = (name: string) => updateSettings({ blocked_apps: settings.blocked_apps.includes(name) ? settings.blocked_apps.filter((p: string) => p !== name) : [...settings.blocked_apps, name] });
+  return <Page title="App Blocker" subtitle="Dunia bisa menunggu. Salat dulu.">
+    <ImageBackground source={IMG.instagram} style={s.hero} imageStyle={{ borderRadius: 28 }}>
+      <LinearGradient colors={[colors.transparent, colors.overlay, colors.pageTop]} locations={[0, 0.5, 1]} style={s.shade} />
+      <View style={s.heroBody}><Badge text="DEMONSTRASI DALAM APLIKASI" icon="sparkles-outline" />
+        <View style={s.row}><View style={{ flex: 1 }}><T size={20} weight="800" color={colors.heroInk}>Pemblokiran aplikasi</T><T size={11} color={colors.heroMuted}>{settings.blocker_enabled ? `Aktif · ${settings.reminder_minutes} menit sebelum azan` : 'Nonaktif · ketuk untuk mengaktifkan'}</T></View>
+          <Switch testID="blocker-enabled-switch" value={settings.blocker_enabled} onValueChange={(value) => updateSettings({ blocker_enabled: value })} trackColor={{ false: colors.borderStrong, true: colors.brandPrimary }} thumbColor={colors.white} /></View>
+      </View>
+    </ImageBackground>
+    <Card style={s.card}>
+      <View style={s.row}><Icon name="hourglass-outline" size={20} color={colors.gold} /><View style={{ flex: 1 }}><T weight="700" size={15}>Diingatkan sebelum azan</T><T size={11} muted>Aplikasi dijeda sejak waktu ini sampai kamu mencatat salat.</T></View></View>
+      <View style={s.chipRow}>{[5, 10, 15, 30].map(m => { const on = settings.reminder_minutes === m; return <Tap key={m} testID={`reminder-minutes-${m}`} onPress={() => updateSettings({ reminder_minutes: m })} style={[s.minute, on && s.minuteOn]}><T size={20} weight="800" color={on ? colors.onBrandPrimary : colors.onSurface}>{m}</T><T size={10} color={on ? colors.onBrandPrimary : colors.muted}>menit</T></Tap>; })}</View>
+      <View style={s.row}><Icon name="time-outline" size={20} color={colors.brandTertiary} /><View style={{ flex: 1 }}><T weight="700" size={15}>Waktu salat yang dijaga</T></View></View>
+      <View style={s.chipRow}>{['Subuh', 'Zuhur', 'Asar', 'Magrib', 'Isya'].map(name => { const on = settings.blocked_prayers.includes(name); return <Tap testID={`blocker-prayer-${name.toLowerCase()}`} key={name} onPress={() => togglePrayer(name)} style={[s.prayerChip, on && s.prayerOn]} accessibilityState={{ selected: on }}><Icon name={PRAYER_ICONS[name]} size={18} color={on ? colors.onBrandPrimary : colors.muted} /><T size={10} weight="700" color={on ? colors.onBrandPrimary : colors.muted}>{name}</T>{on && <View style={s.check}><Icon name="checkmark" size={10} color={colors.onSuccess} /></View>}</Tap>; })}</View>
     </Card>
-    <Card style={s.card}><View style={s.row}><View style={s.iconBox}><Icon name="alarm-outline" color={colors.onBrandSecondary} /></View><View style={{ flex: 1 }}><T size={16} weight="700">Bangun dengan syukur</T><T size={10} muted>Alarm tekan lama · demonstrasi</T></View></View>
-      <Tap testID="alarm-edit-button" style={s.alarmRow} onPress={() => setModal({ type: 'alarm-settings' })}><View><T testID="alarm-time" size={39} weight="800" style={{ letterSpacing: -1.5 }}>{settings.alarm_time.replace(':', '.')}</T><T size={12} muted>{settings.alarm_phrase}</T></View><View style={s.editPill}><Icon name="create-outline" size={18} color={colors.onBrandSecondary} /><T size={11} color={colors.onBrandSecondary}>Ubah</T></View></Tap>
-      <T size={12} muted>Tahan tombol selama 3 detik untuk menutup. Pengenalan ucapan dan alarm latar belakang belum aktif.</T>
-      <Button testID="alarm-demo-button" title="Coba alarm" variant="secondary" icon="volume-medium-outline" onPress={() => setModal({ type: 'alarm' })} />
+    <Card style={s.card}>
+      <View style={s.row}><Icon name="apps-outline" size={20} color={colors.brandTertiary} /><View style={{ flex: 1 }}><T weight="700" size={15}>Aplikasi yang diblokir</T><T size={11} muted>{settings.blocked_apps.length ? `${settings.blocked_apps.length} aplikasi dipilih` : 'Pilih aplikasi yang paling sering mengganggu'}</T></View></View>
+      <View style={s.appGrid}>{APPS.map(app => { const on = settings.blocked_apps.includes(app.name); return <Tap key={app.name} testID={`select-app-${app.name.toLowerCase()}`} onPress={() => toggleApp(app.name)} style={[s.appTile, on && s.appOn]} accessibilityRole="checkbox" accessibilityState={{ checked: on }}>
+        <View style={[s.appIcon, { backgroundColor: (colors as any)[app.color] }]}><Icon name={app.icon} size={24} color={colors.white} /></View><T size={10} weight="600">{app.name}</T>
+        <View style={[s.appCheck, on ? { backgroundColor: colors.success } : { backgroundColor: colors.glassStrong }]}><Icon name={on ? 'lock-closed' : 'add'} size={10} color={on ? colors.onSuccess : colors.onSurface} /></View>
+      </Tap>; })}</View>
+      <Button testID="blocker-demo-button" title="Coba jeda salat sekarang" icon="play" onPress={() => setModal({ type: 'blocker', prayer: 'Magrib' })} />
+      <T size={10} muted style={{ textAlign: 'center' }}>Pemblokiran sistem penuh hadir pada versi native. Di Expo, ini demonstrasi berlabel.</T>
     </Card>
-    <Tap testID="focus-pro-button" style={s.proCard} onPress={() => go('pro')}><View style={{ flex: 1, gap: 6 }}><Badge text="AZAM PRO · PRATINJAU" gold icon="sparkles" /><T size={15} weight="700">Jeda dengan sentuhan ayat</T><T size={11} muted>Kenali pengalaman ibadah yang lebih personal.</T></View><Icon name="arrow-forward" color={colors.goldInk} /></Tap>
+    <Card style={s.card}><View style={s.row}><Image source={IMG.cat} style={s.alarmArt} /><View style={{ flex: 1 }}><T size={16} weight="700">Alarm bangun dzikir</T><T size={11} muted>Ucapkan dzikir, tahan tombol untuk mematikan.</T></View></View>
+      <Tap testID="alarm-edit-button" style={s.alarmRow} onPress={() => setModal({ type: 'alarm-settings' })}><View><T testID="alarm-time" size={40} weight="800" style={{ letterSpacing: -1.5 }}>{settings.alarm_time.replace(':', '.')}</T><T size={12} color={colors.onBrandSecondary}>“{settings.alarm_phrase}”</T></View><View style={s.editPill}><Icon name="create-outline" size={16} color={colors.onBrandSecondary} /><T size={11} weight="700" color={colors.onBrandSecondary}>Ubah</T></View></Tap>
+      <Button testID="alarm-demo-button" title="Coba alarm" variant="secondary" icon="alarm-outline" onPress={() => setModal({ type: 'alarm' })} />
+    </Card>
+    <AmbientCard />
+    <Tap testID="focus-pro-button" style={s.proCard} onPress={() => go('pro')}><LinearGradient colors={[colors.goldSoft, colors.transparent]} style={s.shade} /><Image source={IMG.hajj} style={s.proArt} /><View style={{ flex: 1, gap: 4 }}><Badge text="AZAM PRO · PRATINJAU" gold icon="sparkles" /><T size={15} weight="700">Panduan Haji & Umroh, suara premium</T><T size={11} muted>Jelajahi fitur lanjutan tanpa pembayaran.</T></View><Icon name="arrow-forward" color={colors.goldText} /></Tap>
   </Page>;
 }
 const useStyles = makeStyles(c => ({
-  hero: { alignItems: 'center', gap: 12, paddingVertical: 10 }, shieldCircle: { height: 92, width: 92, borderRadius: 32, backgroundColor: c.brandSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 3, transform: [{ rotate: '-5deg' }] }, center: { textAlign: 'center' },
-  card: { gap: 18 }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, iconBox: { height: 44, width: 44, borderRadius: 15, backgroundColor: c.brandSecondary, justifyContent: 'center', alignItems: 'center' },
-  chipRow: { height: 56, flexShrink: 0, marginTop: -16, marginBottom: -8 }, chipContent: { gap: 7, alignItems: 'center', paddingHorizontal: 0 }, chip: { height: 36, flexShrink: 0, paddingHorizontal: 13, borderRadius: 11, borderWidth: 1, borderColor: c.border, backgroundColor: c.surfaceTertiary, justifyContent: 'center' }, chipSelected: { borderColor: c.brandTertiary, backgroundColor: c.brandSecondary },
-  selectRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: c.divider, paddingTop: 18, minHeight: 65 }, alarmRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, editPill: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, paddingHorizontal: 14, backgroundColor: c.brandSecondary, borderRadius: 14 }, proCard: { padding: 20, borderRadius: 22, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  hero: { height: 210, borderRadius: 28, justifyContent: 'flex-end' }, shade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28 }, heroBody: { padding: 18, gap: 10 },
+  card: { gap: 16 }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, chipRow: { flexDirection: 'row', gap: 8 },
+  minute: { flex: 1, minHeight: 64, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, minuteOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary },
+  prayerChip: { flex: 1, minHeight: 66, borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, prayerOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary }, check: { position: 'absolute', top: 5, right: 5, width: 16, height: 16, borderRadius: 8, backgroundColor: c.success, alignItems: 'center', justifyContent: 'center' },
+  appGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, appTile: { width: '22.5%', minHeight: 92, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, appOn: { borderColor: c.brandTertiary, backgroundColor: c.brandSecondary }, appIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, appCheck: { position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  alarmArt: { width: 56, height: 56, borderRadius: 18 }, alarmRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, editPill: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, paddingHorizontal: 14, backgroundColor: c.brandSecondary, borderRadius: 14 },
+  proCard: { padding: 16, borderRadius: 24, borderWidth: 1, borderColor: c.goldSoft, backgroundColor: c.surface, flexDirection: 'row', alignItems: 'center', gap: 12, overflow: 'hidden' }, proArt: { width: 64, height: 64, borderRadius: 20 },
 }));

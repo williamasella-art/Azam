@@ -8,14 +8,19 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { ErrorBoundary } from '@/src/components/error-boundary';
 import { queryClient } from '@/src/query-client';
 import { AppProvider } from '@/src/AppContext';
+import { AmbientProvider } from '@/src/ambient';
 import { useTheme } from '@/src/theme';
 
 export default function RootLayout() {
   // Prewarm vector icon fonts before rendering, including Expo Go Android.
-  const [ready, error] = useFonts({ Jakarta: require('../assets/fonts/Jakarta.ttf'), Amiri: require('../assets/fonts/Amiri.ttf'), ...Ionicons.font, ...Feather.font });
+  const [ready, error] = useFonts({
+    'Poppins-Regular': require('../assets/fonts/Poppins-Regular.ttf'), 'Poppins-Medium': require('../assets/fonts/Poppins-Medium.ttf'),
+    'Poppins-SemiBold': require('../assets/fonts/Poppins-SemiBold.ttf'), 'Poppins-Bold': require('../assets/fonts/Poppins-Bold.ttf'), 'Poppins-ExtraBold': require('../assets/fonts/Poppins-ExtraBold.ttf'),
+    Amiri: require('../assets/fonts/Amiri.ttf'), ...Ionicons.font, ...Feather.font,
+  });
   const { colors } = useTheme();
-  if (!ready && !error) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.surfaceSecondary }}><ActivityIndicator color={colors.brandPrimary} /></View>;
+  if (!ready && !error) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.pageTop }}><ActivityIndicator color={colors.brandPrimary} /></View>;
   return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider><ErrorBoundary><QueryClientProvider client={queryClient}>
-    <AppProvider><Stack screenOptions={{ headerShown: false }} /></AppProvider>
+    <AppProvider><AmbientProvider><Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.pageTop } }} /></AmbientProvider></AppProvider>
   </QueryClientProvider></ErrorBoundary></SafeAreaProvider></GestureHandlerRootView>;
 }

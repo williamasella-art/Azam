@@ -74,6 +74,11 @@ class Settings(BaseModel):
     alarm_time: str = Field(default='04:30', pattern=r'^([01]\d|2[0-3]):[0-5]\d$')
     alarm_phrase: Literal['Alhamdulillah', 'Masya Allah', 'Ya Rahman, Ya Rahim'] = 'Alhamdulillah'
     translation: bool = True
+    gender: Literal['', 'pria', 'wanita'] = ''
+    reminder_minutes: Literal[5, 10, 15, 30] = 10
+    ambient: Literal['none', 'rain', 'cat'] = 'none'
+    rain_volume: float = Field(default=0.5, ge=0, le=1)
+    cat_volume: float = Field(default=0.5, ge=0, le=1)
     last_surah: int = Field(default=1, ge=1, le=114)
     last_verse: int = Field(default=1, ge=1, le=286)
 
