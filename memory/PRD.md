@@ -79,6 +79,12 @@ Indonesian Muslim companion app: reduce distracting app use at prayer times, wak
 - RevenueCat: dilewati atas permintaan pengguna (RevenueCat belum terkoneksi). Saat lanjut: klik Connect RevenueCat di panel payments, lalu jalankan playbook Emergent-managed RevenueCat (paket bulanan + tahunan).
 - Testing agent iteration 3: 15/15 backend, semua alur baru lolos (`/app/test_reports/iteration_3.json`).
 
+## Implemented — 2026-09-14 (session 4: pindah workspace & verifikasi ShareComposer)
+- Repo GitHub `williamasella-art/Azam` mengembalikan 404 (privat/dihapus); workspace ini sudah berisi codebase lengkap pada state sesi 3, jadi dilanjutkan dari kode lokal. `react-native-android-widget@0.22.1` terpasang di node_modules.
+- `ShareComposer.tsx`: `tsc --noEmit` dan ESLint bersih; wiring di `GlobalOverlay` (mode `success`, `share-verse`, `share-progress`) utuh.
+- Testing agent iteration 4 (`/app/test_reports/iteration_4.json`): 15/15 backend; 3 pintu masuk share (Progres → Story, check-in sukses, ayat harian), 4 latar, 3 nuansa, 4 caption, 2 toggle, fallback teks di web + toast gagal + reset loading semuanya lolos, 0 console error.
+- Catatan minor non-blocking: `accessibilityState.selected` pada `Tap` tidak menghasilkan `aria-selected` di RN-web.
+
 ## Backlog additions
 - Migrate web `shadow*` → `boxShadow` and `pointerEvents` prop → style (web warnings only).
 - Real Pro sounds (thunder/waves/campfire/birds) when payment is added; RevenueCat deferred by user choice.

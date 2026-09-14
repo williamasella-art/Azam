@@ -39,5 +39,5 @@
   "seed_data_creation": "Only ephemeral guest users via POST /api/auth/guest during tests; no persistent seed data written.",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Frontend URL: https://quranic-focus-app.preview.emergentagent.com. To reach Home quickly: localStorage.setItem('azam-intro-done','1'); reload; click guest-login-button; if intro re-appears, click intro-skip-button. Blocker prayer chip testIDs are lowercase (blocker-prayer-subuh/zuhur/asar/magrib/isya) not capitalized. All 30+ testIDs from the review request were located and interactive."
+  "context_for_next_testing_agent": "Frontend URL: https://quranic-focus-2.preview.emergentagent.com. To reach Home quickly: localStorage.setItem('azam-intro-done','1'); reload; click guest-login-button; if intro re-appears, click intro-skip-button. Blocker prayer chip testIDs are lowercase (blocker-prayer-subuh/zuhur/asar/magrib/isya) not capitalized. All 30+ testIDs from the review request were located and interactive."
 }
