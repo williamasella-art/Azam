@@ -117,3 +117,18 @@ Indonesian Muslim companion app: reduce distracting app use at prayer times, wak
 1. User validation of mobile design/flows.
 2. Physical-device check of native permissions, compass and notification delivery, plus interactive Google login.
 3. Prioritize real native Android blocking as next main product enhancement.
+## Iterasi 8 (Juni 2026) — import GitHub + permintaan pengguna
+- Setup: repo di /app, .env backend (MONGO_URL, DB_NAME, EMERGENT_LLM_KEY) & frontend dibuat ulang; deps terpasang (python-multipart, requests).
+- Foto profil: upload ke Emergent Object Storage (`POST /api/profile/photo`, `GET /api/files/{path}?token=`, `DELETE /api/profile/photo`), koleksi `photos` soft-delete; avatar di Settings & header Beranda; ubah nama (`PUT /api/profile`).
+- Bahasa: settings.language (id/en/ms/ar) + `src/i18n.ts` (tab, Beranda, Pengaturan, Pro, Salat sunah, Blocker, judul sheet, caption).
+- Salat sunah (Pro): layar `sunnah` (Tahajud, Dhuha, Witir, Rawatib) dengan waktu perkiraan, niat Arab+Latin+arti, toggle pengingat → settings.sunnah_reminders; `SunnahNotifications` jadwalkan notifikasi lokal (native).
+- Seayat share: foto sendiri default layar penuh, chip Layar penuh/Di tengah selalu tampil, 30 caption/bahasa (campuran motivasi + ayat/hadits), slogan "viral" dihapus.
+- Pro: urutan keunggulan dimulai dari pengingat salat sunah/mode malam/suara, Haji & Umrah dipindah ke belakang; banner Pro tak lagi memakai gambar Haji.
+- Haji & Umrah: animasi layout/stagger dihapus (hanya press-state halus).
+- Beranda: ikon salat 5 waktu jadi ilustrasi langit SVG (`PrayerSky`), tata letak header dengan avatar.
+- App Blocker: toggle dalam pill putih + label ON/OFF (kontras tinggi).
+
+### Backlog
+- P1: terjemahan penuh layar dalam (Haji, Al-Qur'an UI, Kiblat, Alarm, Intro) ke en/ms/ar; RTL layout untuk Arab.
+- P1: pengujian notifikasi salat sunah di perangkat (Expo Go).
+- P2: pemblokir aplikasi native, widget sistem, pembayaran Pro.

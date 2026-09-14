@@ -35,3 +35,18 @@ export async function api<T = any>(path: string, body?: unknown, method?: string
 export function dayInZone(zone = 'Asia/Jakarta', value = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(value);
 }
+const base = () => String(Constants.expoConfig?.extra?.backendUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '').replace(/\/$/, '');
+/** Stored photos are private; web <img> cannot send headers so the session rides in the query string. */
+export function fileUrl(path?: string | null) {
+  return path && token ? `${base()}/api/files/${path}?token=${encodeURIComponent(token)}` : null;
+}
+export async function uploadPhoto(uri: string, mimeType?: string | null, fileName?: string | null) {
+  const form = new FormData();
+  const type = mimeType || 'image/jpeg'; const name = fileName || `photo.${type.split('/')[1] || 'jpg'}`;
+  if (uri.startsWith('data:') || uri.startsWith('blob:')) form.append('file', await (await fetch(uri)).blob(), name);
+  else form.append('file', { uri, type, name } as any);
+  const response = await fetch(`${base()}/api/profile/photo`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+  const data = await response.json();
+  if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Foto belum dapat diunggah.');
+  return data;
+}

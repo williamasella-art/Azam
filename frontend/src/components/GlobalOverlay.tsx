@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { ImageBackground, KeyboardAvoidingView, Modal, Platform, ScrollView, View } from 'react-native';
+import { ImageBackground, KeyboardAvoidingView, Modal, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useApp } from '@/src/AppContext';
-import { makeStyles, useTheme } from '@/src/theme';
+import { fontFor, makeStyles, useTheme } from '@/src/theme';
 import { IMG } from '@/src/assets';
 import { AddAppSheet, AlarmFormSheet, LocationSheet, NotificationSheet } from './FormSheets';
 import { AmbientCard } from './AmbientCard';
@@ -13,6 +13,32 @@ import { Badge, Button, Card, Icon, T, Tap } from './ui';
 import { LevelBadge } from './LevelBadge';
 import { ShareComposer } from './ShareComposer';
 import { LevelUpOverlay } from './LevelUp';
+import { LANGUAGES, useI18n } from '@/src/i18n';
+import { api } from '@/src/api';
+
+const STRINGS_ID_MODAL: Record<string, true> = { location: true, notifications: true, 'alarm-form': true, success: true, 'share-verse': true, 'share-progress': true, 'share-badge': true, day: true, ambient: true, adhan: true, 'add-app': true, 'widget-preview': true, 'rakaat-preview': true, logout: true, language: true, profile: true };
+
+function LanguageSheet() {
+  const { settings, updateSettings, setModal } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { t } = useI18n();
+  const current = settings?.language || 'id';
+  return <View style={s.body} testID="language-sheet"><T muted size={13}>{t('language.hint')}</T>
+    {LANGUAGES.map(l => <Tap key={l.key} testID={`language-option-${l.key}`} style={[s.dayRow, current === l.key && { borderColor: colors.brandPrimary, backgroundColor: colors.brandSecondary }]} onPress={async () => { if (await updateSettings({ language: l.key })) setModal(null); }}>
+      <View style={s.flag}><T size={11} weight="800" color={colors.onBrandSecondary}>{l.flag}</T></View><View style={{ flex: 1 }}><T size={16} weight="700">{l.native}</T><T size={11} muted>{l.label}</T></View><Icon name={current === l.key ? 'radio-button-on' : 'radio-button-off'} color={current === l.key ? colors.brandPrimary : colors.borderStrong} />
+    </Tap>)}
+  </View>;
+}
+function ProfileSheet() {
+  const { user, setUser, setModal, notify } = useApp(); const s = useStyles(); const { t } = useI18n();
+  const [name, setName] = useState(user.name); const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (!name.trim()) return; setSaving(true);
+    try { setUser(await api('/profile', { name: name.trim() }, 'PUT')); setModal(null); } catch (e: any) { notify(e.message); } finally { setSaving(false); }
+  };
+  return <View style={s.body} testID="profile-sheet"><T muted size={13}>{t('settings.editName')}</T>
+    <TextInput testID="profile-name-input" value={name} onChangeText={setName} maxLength={60} style={s.input} placeholder={t('settings.editName')} returnKeyType="done" onSubmitEditing={save} autoFocus />
+    <Button testID="profile-save-button" title={t('common.save')} icon="checkmark" loading={saving} disabled={!name.trim()} onPress={save} />
+  </View>;
+}
 
 export function Toast() {
   const { toast, modal, screen, settings } = useApp(); const s = useStyles(); const insets = useSafeAreaInsets(); if (!toast) return null;
@@ -36,18 +62,19 @@ function RakaatPreview() {
   return <View style={s.body}><Badge text="KONSEP PRO · BELUM TERSEDIA" gold /><LevelBadge name="Purnama" size={110} style={{ alignSelf: 'center' }} /><T size={24} weight="800">Fokus pada salatmu.</T><T muted>Penghitungan rakaat otomatis membutuhkan integrasi sensor native dan pengujian posisi perangkat. Versi ini tidak mendeteksi sujud atau menghitung rakaat otomatis.</T><Card><Icon name="information-circle-outline" color={colors.onBrandSecondary} /><T size={12} muted style={{ marginTop: 12 }}>Fitur belum dapat diaktifkan. Jangan mengandalkan pratinjau ini untuk menentukan jumlah rakaat.</T></Card></View>;
 }
 export function GlobalOverlay() {
-  const { modal, setModal, logout } = useApp(); const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets();
+  const { modal, setModal, logout } = useApp(); const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets(); const { t } = useI18n();
   const isDemo = modal?.type === 'blocker' || modal?.type === 'alarm' || modal?.type === 'levelup';
-  const titles: Record<string, string> = { location: 'Atur lokasi', notifications: 'Pengingat salat', 'alarm-form': 'Alarm baru', success: 'Satu langkah baik', 'share-verse': 'Bagikan ayat', 'share-progress': 'Bagikan ke Story', 'share-badge': 'Bagikan lencana', day: 'Catatan salat', ambient: 'Suasana tenang', adhan: 'Waktu salat', 'add-app': 'Tambah aplikasi', 'widget-preview': 'Ayat di layar kunci', 'rakaat-preview': 'Penghitung rakaat', logout: 'Keluar dari Azam?' };
+  const modalTitle = modal ? (modal.title || (modal.type in STRINGS_ID_MODAL ? t(`modal.${modal.type}` as any) : '')) : '';
   if (!modal) return null;
   return <Modal key={modal.type} visible transparent={!isDemo} animationType="slide" onRequestClose={() => setModal(null)} statusBarTranslucent>
     <GestureHandlerRootView style={{ flex: 1 }}>{modal && (isDemo ? (modal.type === 'levelup' ? <LevelUpOverlay /> : <DemoOverlay key={modal.type} />) : <KeyboardAvoidingView style={s.modalRoot} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Tap testID="modal-backdrop" onPress={() => setModal(null)} style={s.backdrop}><View /></Tap>
-      <View style={[s.sheet, { paddingBottom: insets.bottom + 20, marginTop: insets.top + 16 }]}><View style={s.handle} /><View style={s.sheetHeader}><T size={20} weight="800" style={{ flex: 1 }}>{modal.title || titles[modal.type]}</T><Tap testID="modal-close-button" style={s.closeButton} onPress={() => setModal(null)}><Icon name="close" size={22} /></Tap></View>
+      <View style={[s.sheet, { paddingBottom: insets.bottom + 20, marginTop: insets.top + 16 }]}><View style={s.handle} /><View style={s.sheetHeader}><T size={20} weight="800" style={{ flex: 1 }}>{modalTitle}</T><Tap testID="modal-close-button" style={s.closeButton} onPress={() => setModal(null)}><Icon name="close" size={22} /></Tap></View>
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.sheetContent}>
           {modal.type === 'location' && <LocationSheet />}{modal.type === 'notifications' && <NotificationSheet />}{modal.type === 'alarm-form' && <AlarmFormSheet />}{modal.type === 'ambient' && <AmbientCard />}{modal.type === 'adhan' && <AdhanSheet />}{modal.type === 'add-app' && <AddAppSheet />}
           {['success', 'share-verse', 'share-progress', 'share-badge'].includes(modal.type) && <ShareComposer />}{modal.type === 'day' && <DaySheet />}{modal.type === 'widget-preview' && <WidgetPreview />}{modal.type === 'rakaat-preview' && <RakaatPreview />}
-          {modal.type === 'info' && <View style={s.body}><View style={s.verseIcon}><Icon name="information-circle-outline" size={35} color={colors.brandTertiary} /></View><T muted size={15}>{modal.message}</T><Button testID="info-dismiss-button" title="Mengerti" onPress={() => setModal(null)} /></View>}
+          {modal.type === 'language' && <LanguageSheet />}{modal.type === 'profile' && <ProfileSheet />}
+          {modal.type === 'info' && <View style={s.body}><View style={s.verseIcon}><Icon name="information-circle-outline" size={35} color={colors.brandTertiary} /></View><T muted size={15}>{modal.message}</T>{modal.action && <Button testID="info-action-button" title={modal.actionTitle} icon="open-outline" variant="secondary" onPress={() => { setModal(null); modal.action(); }} />}<Button testID="info-dismiss-button" title={t('common.ok')} onPress={() => setModal(null)} /></View>}
           {modal.type === 'logout' && <View style={s.body}><T muted>Catatan tamu tidak dapat dipulihkan setelah keluar. Jika menggunakan Google, Anda dapat masuk kembali ke akun yang sama.</T><Button testID="logout-confirm-button" title="Ya, keluar" variant="danger" onPress={logout} /><Button testID="logout-cancel-button" title="Tetap di sini" variant="secondary" onPress={() => setModal(null)} /></View>}
         </ScrollView>
       </View><Toast />
@@ -58,4 +85,6 @@ const useStyles = makeStyles(c => ({
   modalRoot: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: c.overlay }, backdrop: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }, sheet: { width: '100%', maxWidth: 560, maxHeight: '92%', minHeight: '50%', backgroundColor: c.surfaceSecondary, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', borderTopWidth: 1, borderColor: c.border }, handle: { width: 34, height: 4, backgroundColor: c.borderStrong, borderRadius: 3, alignSelf: 'center', marginTop: 12 }, sheetHeader: { paddingHorizontal: 22, paddingVertical: 14, flexDirection: 'row', gap: 10, alignItems: 'center' }, closeButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: c.glass, justifyContent: 'center', alignItems: 'center' }, sheetContent: { paddingHorizontal: 22, paddingBottom: 22 }, body: { gap: 18 }, center: { textAlign: 'center' },
   verseIcon: { width: 78, height: 78, borderRadius: 27, backgroundColor: c.brandSecondary, justifyContent: 'center', alignItems: 'center', alignSelf: 'center' }, dayRow: { padding: 16, minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: c.surface, borderRadius: 17, borderWidth: 1, borderColor: c.border }, widgetPhone: { padding: 22, borderRadius: 32, alignItems: 'center', gap: 10, minHeight: 355, overflow: 'hidden' }, widgetCard: { backgroundColor: c.overlay, padding: 18, borderRadius: 22, gap: 10, alignItems: 'center', marginTop: 14 }, optionsRow: { flexDirection: 'row', gap: 10 },
   toast: { position: 'absolute', bottom: 24, left: 24, right: 24, padding: 16, backgroundColor: c.surfaceInverse, borderRadius: 17, alignSelf: 'center', maxWidth: 500, pointerEvents: 'none' }, toastText: { color: c.onSurfaceInverse, textAlign: 'center' },
+  flag: { width: 40, height: 40, borderRadius: 13, backgroundColor: c.brandSecondary, alignItems: 'center', justifyContent: 'center' },
+  input: { borderWidth: 1, borderColor: c.borderStrong, borderRadius: 15, height: 51, paddingHorizontal: 15, fontFamily: fontFor('500'), fontSize: 14, color: c.onSurface, backgroundColor: c.surface, outlineWidth: 0 },
 }));

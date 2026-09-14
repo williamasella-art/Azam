@@ -22,18 +22,21 @@ import { Progress, Achievements } from '@/src/screens/Progress';
 import { Qibla } from '@/src/screens/Qibla';
 import { Pro, Settings } from '@/src/screens/Settings';
 import { Hajj } from '@/src/screens/Hajj';
+import { SunnahScreen } from '@/src/screens/Sunnah';
+import { SunnahNotifications } from '@/src/components/SunnahNotifications';
+import { useI18n } from '@/src/i18n';
 
-const TABS: { key: ScreenName; label: string; icon: string; selected: string }[] = [
-  { key: 'home', label: 'Beranda', icon: 'home-outline', selected: 'home' },
-  { key: 'qibla', label: 'Kiblat', icon: 'compass-outline', selected: 'compass' },
-  { key: 'focus', label: 'Blocker', icon: 'shield-half-outline', selected: 'shield-half' },
-  { key: 'quran', label: 'Al-Qur’an', icon: 'book-outline', selected: 'book' },
-  { key: 'progress', label: 'Progres', icon: 'flame-outline', selected: 'flame' },
+const TABS: { key: ScreenName; label: 'tab.home' | 'tab.qibla' | 'tab.focus' | 'tab.quran' | 'tab.progress'; icon: string; selected: string }[] = [
+  { key: 'home', label: 'tab.home', icon: 'home-outline', selected: 'home' },
+  { key: 'qibla', label: 'tab.qibla', icon: 'compass-outline', selected: 'compass' },
+  { key: 'focus', label: 'tab.focus', icon: 'shield-half-outline', selected: 'shield-half' },
+  { key: 'quran', label: 'tab.quran', icon: 'book-outline', selected: 'book' },
+  { key: 'progress', label: 'tab.progress', icon: 'flame-outline', selected: 'flame' },
 ];
 export default function Index() {
-  const { user, loading, settings, screen, go, modal, introDone, showIntro } = useApp(); const { colors, scheme } = useTheme(); const s = useStyles();
+  const { user, loading, settings, screen, go, modal, introDone, showIntro } = useApp(); const { colors, scheme } = useTheme(); const s = useStyles(); const { t } = useI18n();
   const tabScreen = TABS.some(tab => tab.key === screen);
-  const screens: Record<ScreenName, React.ReactNode> = { home: <Home />, quran: <Quran />, focus: <Focus />, progress: <Progress />, reader: <Reader />, qibla: <Qibla />, achievements: <Achievements />, settings: <Settings />, pro: <Pro />, hajj: <Hajj />, alarms: <Alarms /> };
+  const screens: Record<ScreenName, React.ReactNode> = { home: <Home />, quran: <Quran />, focus: <Focus />, progress: <Progress />, reader: <Reader />, qibla: <Qibla />, achievements: <Achievements />, settings: <Settings />, pro: <Pro />, hajj: <Hajj />, alarms: <Alarms />, sunnah: <SunnahScreen /> };
   const needsIntro = showIntro || (!user && introDone === false) || (!!user && settings && !settings.onboarded);
   return <View style={s.root}><StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     <SafeAreaView style={s.frame} edges={user && !needsIntro ? ['top', 'bottom'] : []}>
@@ -43,10 +46,10 @@ export default function Index() {
           const active = screen === tab.key;
           return <Tap testID={`tab-${tab.key}`} key={tab.key} onPress={() => go(tab.key)} style={s.tab} accessibilityRole="tab" accessibilityState={{ selected: active }}>
             {active && <Animated.View entering={FadeIn.duration(250)} style={s.tabActiveBg}><LinearGradient colors={[colors.brandTertiary, colors.brandDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.tabGradient} /></Animated.View>}
-            <Icon name={active ? tab.selected : tab.icon} size={22} color={active ? colors.onBrandPrimary : colors.onSurfaceTertiary} /><T size={9} weight="700" color={active ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{tab.label}</T>
+            <Icon name={active ? tab.selected : tab.icon} size={22} color={active ? colors.onBrandPrimary : colors.onSurfaceTertiary} /><T size={9} weight="700" color={active ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{t(tab.label)}</T>
           </Tap>;
         })}</View></View>}
-        <PrayerNotifications /><AlarmScheduler /><AdhanPlayer /><WidgetSync />
+        <PrayerNotifications /><SunnahNotifications /><AlarmScheduler /><AdhanPlayer /><WidgetSync />
       </>}
       {!modal && <Toast />}
     </SafeAreaView><GlobalOverlay />

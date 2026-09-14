@@ -8,10 +8,11 @@ from uuid import uuid4
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from hijridate import Gregorian, Hijri
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, model_validator
@@ -31,6 +32,11 @@ async def lifespan(_app):
     await db.logs.create_index([('user_id', 1), ('date', 1), ('prayer', 1)], unique=True)
     await db.cache.create_index('key', unique=True)
     await db.alarms.create_index([('user_id', 1), ('id', 1)], unique=True)
+    await db.photos.create_index([('user_id', 1), ('path', 1)], unique=True)
+    try:
+        await run_in_threadpool(init_storage)
+    except Exception as e:  # storage stays lazy-initialised on first upload
+        print('object storage init deferred:', e)
     yield
     await http.aclose()
     client.close()
@@ -58,6 +64,11 @@ class User(BaseModel):
     name: str
     guest: bool = True
     email: str | None = None
+    photo_path: str | None = None
+
+
+class Profile(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
 
 
 class Session(BaseModel):
@@ -103,6 +114,8 @@ class Settings(BaseModel):
     hajj_done: list[str] = Field(default_factory=list, max_length=120)
     last_surah: int = Field(default=1, ge=1, le=114)
     last_verse: int = Field(default=1, ge=1, le=286)
+    language: Literal['id', 'en', 'ms', 'ar'] = 'id'
+    sunnah_reminders: list[Literal['tahajud', 'dhuha', 'witir', 'rawatib']] = Field(default_factory=list, max_length=4)
 
 
 async def current_user(authorization: str | None = Header(default=None)):
@@ -165,6 +178,58 @@ async def me(user=Depends(current_user)):
 async def logout(user=Depends(current_user), authorization: str = Header()):
     await db.sessions.delete_one({'session_token': authorization[7:]})
     return Data(data={'ok': True})
+
+
+# ---- Profile: display name + photo stored in Emergent object storage (served only to its owner). ----
+from storage import get_object, init_storage, put_object  # noqa: E402
+
+IMAGE_TYPES = {'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic'}
+
+
+@router.put('/profile', response_model=User)
+async def update_profile(body: Profile, user=Depends(current_user)):
+    await db.users.update_one({'user_id': user['user_id']}, {'$set': {'name': body.name.strip()}})
+    return User(**{**user, 'name': body.name.strip()})
+
+
+@router.post('/profile/photo', response_model=User)
+async def upload_photo(file: UploadFile = File(...), user=Depends(current_user)):
+    content_type = (file.content_type or '').split(';')[0].strip().lower()
+    if content_type not in IMAGE_TYPES:
+        raise HTTPException(422, 'Gunakan foto JPG, PNG, atau WEBP.')
+    data = await file.read()
+    if len(data) > 6 * 1024 * 1024:
+        raise HTTPException(422, 'Ukuran foto maksimal 6 MB.')
+    path = f'azam-app-blocker/uploads/{user["user_id"]}/{uuid4().hex}.{IMAGE_TYPES[content_type]}'
+    try:
+        result = await run_in_threadpool(put_object, path, data, content_type)
+    except Exception as e:  # requests.HTTPError or connection error
+        status = getattr(getattr(e, 'response', None), 'status_code', None)
+        raise HTTPException(402 if status == 402 else 503, 'Kuota penyimpanan habis.' if status == 402 else 'Foto belum dapat diunggah. Coba lagi sebentar.')
+    await db.users.update_one({'user_id': user['user_id']}, {'$set': {'photo_path': result['path']}})
+    await db.photos.insert_one({'user_id': user['user_id'], 'path': result['path'], 'content_type': content_type, 'size': len(data), 'created_at': datetime.now(timezone.utc).isoformat(), 'deleted_at': None})
+    return User(**{**user, 'photo_path': result['path']})
+
+
+@router.delete('/profile/photo', response_model=User)
+async def remove_photo(user=Depends(current_user)):
+    await db.users.update_one({'user_id': user['user_id']}, {'$set': {'photo_path': None}})
+    await db.photos.update_many({'user_id': user['user_id'], 'deleted_at': None}, {'$set': {'deleted_at': datetime.now(timezone.utc).isoformat()}})
+    return User(**{**user, 'photo_path': None})
+
+
+@router.get('/files/{path:path}')
+async def get_file(path: str, token: str | None = None, authorization: str | None = Header(default=None)):
+    """Serves a stored object. Web <img> cannot send headers, so a session token may come as ?token=."""
+    user = await current_user(f'Bearer {token}' if token else authorization)
+    owned = await db.photos.find_one({'user_id': user['user_id'], 'path': path, 'deleted_at': None}, {'_id': 0})
+    if not owned:
+        raise HTTPException(404, 'Berkas tidak ditemukan.')
+    try:
+        content, content_type = await run_in_threadpool(get_object, path)
+    except Exception:
+        raise HTTPException(503, 'Berkas belum dapat dimuat.')
+    return Response(content=content, media_type=content_type, headers={'Cache-Control': 'private, max-age=86400'})
 
 
 @router.get('/settings', response_model=Settings)

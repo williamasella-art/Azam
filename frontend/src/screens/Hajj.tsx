@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ImageBackground, ScrollView, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
 import { IMG } from '@/src/assets';
@@ -64,17 +63,17 @@ export function Hajj() {
       </View></ImageBackground>
     <View style={s.chipRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>{HAJJ_PHASES.map(p => { const on = p.key === phaseKey; const count = p.steps.filter(st => done.includes(st.id)).length; return <Tap key={p.key} testID={`hajj-phase-${p.key}`} onPress={() => setPhaseKey(p.key)} style={[s.chip, on && s.chipOn]} accessibilityState={{ selected: on }}><Icon name={p.icon} size={15} color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary} /><T size={12} weight="600" color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{p.short}</T><View style={[s.count, on && { backgroundColor: colors.glassStrong }]}><T size={9} weight="800" color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{count}/{p.steps.length}</T></View></Tap>; })}</ScrollView></View>
     <T size={12} muted style={{ paddingHorizontal: 4 }}>{phase.intro}</T>
-    <View style={s.timeline}>{phase.steps.map((step, i) => { const isDone = done.includes(step.id); const isOpen = open === step.id; const isNext = nextStep?.id === step.id; return <Animated.View key={step.id} layout={Layout.springify().damping(18)} entering={FadeInDown.delay(i * 40).duration(300)} style={s.stepRow}>
+    <View style={s.timeline}>{phase.steps.map((step, i) => { const isDone = done.includes(step.id); const isOpen = open === step.id; const isNext = nextStep?.id === step.id; return <View key={step.id} style={s.stepRow}>
       <View style={s.rail}><Tap testID={`hajj-step-check-${step.id}`} onPress={() => toggle(step.id)} style={[s.checkbox, isDone && s.checkboxDone, isNext && !isDone && s.checkboxNext]} accessibilityRole="checkbox" accessibilityState={{ checked: isDone }}>{isDone ? <Icon name="checkmark" size={16} color={colors.onSuccess} /> : <T size={12} weight="800" color={isNext ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{i + 1}</T>}</Tap>{i < phase.steps.length - 1 && <View style={[s.line, isDone && { backgroundColor: colors.success }]} />}</View>
       <Card style={[s.stepCard, isNext && !isDone && s.stepNext, isDone && s.stepDone]}>
         <Tap testID={`hajj-step-${step.id}`} onPress={() => setOpen(isOpen ? null : step.id)} style={s.stepHead}><View style={{ flex: 1, gap: 2 }}>{isNext && !isDone && <T size={9} weight="800" color={colors.onBrandSecondary}>LANGKAH BERIKUTNYA</T>}<T size={14} weight="700" color={isDone ? colors.muted : colors.onSurface} style={isDone && { textDecorationLine: 'line-through' }}>{step.title}</T></View><Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} /></Tap>
-        {isOpen && <Animated.View entering={FadeInDown.duration(220)} style={{ gap: 12 }}>
+        {isOpen && <View style={{ gap: 12 }}>
           <T size={13} style={{ lineHeight: 20 }}>{step.text}</T>
           {step.dua && <Paper style={s.dua}><T size={10} weight="800" color={colors.brandDeep}>{(step.dua.label || 'Doa').toUpperCase()}</T><T arabic paper size={22} style={{ textAlign: 'right', lineHeight: 40 }}>{step.dua.arab}</T>{step.dua.latin && <T paper size={12} weight="600" style={{ fontStyle: 'italic' }}>{step.dua.latin}</T>}<T paper muted size={12}>“{step.dua.arti}”</T></Paper>}
           <Button testID={`hajj-step-done-${step.id}`} size="sm" title={isDone ? 'Tandai belum selesai' : 'Tandai selesai'} icon={isDone ? 'refresh-outline' : 'checkmark-circle-outline'} variant={isDone ? 'secondary' : 'primary'} onPress={() => toggle(step.id)} />
-        </Animated.View>}
+        </View>}
       </Card>
-    </Animated.View>; })}</View>
+    </View>; })}</View>
     <Card style={{ gap: 12 }}><Tap testID="hajj-forbidden-toggle" onPress={() => setShowForbidden(v => !v)} style={s.stepHead}><Icon name="ban-outline" size={20} color={colors.error} /><T size={14} weight="700" style={{ flex: 1 }}>Larangan saat ihram</T><Icon name={showForbidden ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} /></Tap>
       {showForbidden && FORBIDDEN.map((item, i) => <View key={item} style={s.forbiddenRow}><View style={s.num}><T size={11} weight="800" color={colors.onBrandPrimary}>{i + 1}</T></View><T size={13} style={{ flex: 1, lineHeight: 20 }}>{item}</T></View>)}</Card>
     <Paper style={{ gap: 8, alignItems: 'center' }}><T size={10} weight="800" color={colors.brandDeep}>TALBIYAH</T><T arabic paper size={24} style={{ textAlign: 'center', lineHeight: 44 }}>{TALBIYAH.arab}</T><T paper muted size={12} style={{ textAlign: 'center' }}>“{TALBIYAH.arti}”</T></Paper>

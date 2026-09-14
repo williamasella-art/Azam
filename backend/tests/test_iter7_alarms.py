@@ -26,7 +26,7 @@ import requests
 BASE_URL = (
     os.environ.get("EXPO_BACKEND_URL")
     or os.environ.get("EXPO_PUBLIC_BACKEND_URL")
-    or "https://alarm-scheduler-pro-1.preview.emergentagent.com"
+    or "https://azam-islamic-app.preview.emergentagent.com"
 ).rstrip("/")
 
 

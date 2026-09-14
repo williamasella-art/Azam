@@ -6,9 +6,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, dayInZone, onUnauthorized, setToken, TOKEN_KEY } from './api';
 import { storage } from './utils/storage';
 import { setColorScheme } from './theme';
+import { setLanguage } from './i18n';
 
 WebBrowser.maybeCompleteAuthSession();
-export type ScreenName = 'home' | 'quran' | 'focus' | 'progress' | 'settings' | 'qibla' | 'achievements' | 'pro' | 'reader' | 'hajj' | 'alarms';
+export type ScreenName = 'home' | 'quran' | 'focus' | 'progress' | 'settings' | 'qibla' | 'achievements' | 'pro' | 'reader' | 'hajj' | 'alarms' | 'sunnah';
 export const INTRO_KEY = 'azam-intro-done';
 export const INTRO_PREFS_KEY = 'azam-intro-prefs';
 const Context = createContext<any>(null);
@@ -36,7 +37,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const loadSettings = useCallback(async () => {
     const value = await api('/settings'); settingsRef.current = value; setSettings(value);
-    setColorScheme(value.dark ? 'dark' : 'light');
+    setColorScheme(value.dark ? 'dark' : 'light'); setLanguage(value.language);
   }, []);
   const accept = useCallback(async (result: any) => {
     setToken(result.session_token);
@@ -113,7 +114,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateSettings = async (patch: any) => {
     try {
       const value = await api('/settings', { ...settingsRef.current, ...patch }, 'PUT');
-      settingsRef.current = value; setSettings(value); setColorScheme(value.dark ? 'dark' : 'light');
+      settingsRef.current = value; setSettings(value); setColorScheme(value.dark ? 'dark' : 'light'); setLanguage(value.language);
       return true;
     } catch (e: any) { notify(e.message); return false; }
   };
@@ -121,7 +122,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (snoozeTimer.current) clearTimeout(snoozeTimer.current);
     try { await api('/auth/logout', {}); } catch { /* Local cleanup always runs. */ }
     await storage.secureRemove(TOKEN_KEY); setToken(''); setUser(null); setSettings(null); settingsRef.current = null;
-    setModal(null); setScreen('home'); setColorScheme('light'); queryClient.clear();
+    setModal(null); setScreen('home'); setColorScheme('light'); setLanguage('id'); queryClient.clear();
   };
   const day = dayInZone(settings?.timezone, now);
   const [month, setMonth] = useState(day.slice(0, 7));
@@ -191,7 +192,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     notify('Pengingat demonstrasi muncul dalam 5 menit selama sesi Azam tetap terbuka.');
     snoozeTimer.current = setTimeout(() => setModal({ type: 'blocker' }), 5 * 60 * 1000);
   };
-  return <Context.Provider value={{ user, loading, authError, guest, google, logout, settings, updateSettings, screen, go, lastTab, surah, read, introDone, showIntro, setShowIntro, finishIntro,
+  return <Context.Provider value={{ user, setUser, loading, authError, guest, google, logout, settings, updateSettings, screen, go, lastTab, surah, read, introDone, showIntro, setShowIntro, finishIntro,
     toast, notify, modal, setModal, now, day, localMinute, month, setMonth, events, progress, prayers, tomorrowPrayers, daily, checkin, checking, snooze, alarms, saveAlarm, removeAlarm }}>{children}</Context.Provider>;
 }
 export const useApp = () => useContext(Context);

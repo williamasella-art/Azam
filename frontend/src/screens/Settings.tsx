@@ -1,79 +1,121 @@
 import React, { useEffect, useState } from 'react';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-import { ImageBackground, Switch, View } from 'react-native';
+import { ActivityIndicator, ImageBackground, Linking, Platform, Switch, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useQueryClient } from '@tanstack/react-query';
 import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
 import { IMG } from '@/src/assets';
 import { PRO_AMBIENTS } from '@/src/ambient';
+import { api, uploadPhoto } from '@/src/api';
+import { LANGUAGES, useI18n } from '@/src/i18n';
+import { Avatar } from '@/src/components/Avatar';
 import { Badge, Button, Card, Icon, IconBox, Page, Section, T, Tap } from '@/src/components/ui';
 
 function SettingRow({ icon, title, value, onPress, testID, children, gold }: any) {
   const s = useStyles(); const { colors } = useTheme();
   return <Tap testID={testID} onPress={onPress} style={s.settingRow}><IconBox name={icon} size={40} icon={19} bg={gold ? colors.goldSoft : undefined} color={gold ? colors.goldText : undefined} /><View style={{ flex: 1 }}><T size={13} weight="600">{title}</T>{value && <T size={10} muted>{value}</T>}</View>{children || <Icon name="chevron-forward" color={colors.muted} size={17} />}</Tap>;
 }
+/** Profile photo picker: contextual permission ask, one retry, then a Settings deep link (never a dead end). */
+function ProfilePhoto() {
+  const { user, setUser, notify, setModal } = useApp(); const { t } = useI18n(); const s = useStyles(); const { colors } = useTheme();
+  const [busy, setBusy] = useState(false); const queryClient = useQueryClient();
+  const pick = async () => {
+    if (busy) return;
+    const ImagePicker = await import('expo-image-picker');
+    if (Platform.OS !== 'web') {
+      let permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+      if (!permission.granted && permission.canAskAgain) permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) { setModal({ type: 'info', title: t('settings.changePhoto'), message: t('settings.photoPermission'), actionTitle: t('settings.openSettings'), action: () => Linking.openSettings() }); return; }
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+    if (result.canceled || !result.assets?.[0]) return;
+    setBusy(true);
+    try { const asset = result.assets[0]; const next = await uploadPhoto(asset.uri, asset.mimeType, asset.fileName); setUser(next); queryClient.invalidateQueries({ queryKey: ['me'] }); notify(t('settings.photoSaved')); }
+    catch (e: any) { notify(e.message); } finally { setBusy(false); }
+  };
+  const remove = async () => {
+    if (busy) return; setBusy(true);
+    try { setUser(await api('/profile/photo', undefined, 'DELETE')); notify(t('settings.photoRemoved')); } catch (e: any) { notify(e.message); } finally { setBusy(false); }
+  };
+  return <View style={s.photoCol}>
+    <Tap testID="settings-photo-button" onPress={pick} style={s.avatarWrap} accessibilityLabel={t('settings.changePhoto')}>
+      <Avatar name={user.name} photoPath={user.photo_path} size={72} testID="settings-avatar" />
+      <View style={s.camBadge}>{busy ? <ActivityIndicator size="small" color={colors.onBrandPrimary} /> : <Icon name="camera" size={13} color={colors.onBrandPrimary} />}</View>
+    </Tap>
+    {user.photo_path && <Tap testID="settings-photo-remove-button" onPress={remove} style={{ minHeight: 32, justifyContent: 'center' }}><T size={10} color={colors.error} weight="600">{t('settings.removePhoto')}</T></Tap>}
+  </View>;
+}
 export function Settings() {
-  const { user, settings, updateSettings, setModal, go, setShowIntro, lastTab, alarms } = useApp(); const s = useStyles(); const { colors } = useTheme();
-  const gender = settings.gender === 'wanita' ? 'Perempuan' : settings.gender === 'pria' ? 'Laki-laki' : 'Belum diatur';
-  return <Page title="Pengaturan" back={lastTab} subtitle="Azam, sesuai kenyamananmu.">
-    <Card style={s.profile}><View style={s.avatar}><T weight="800" size={22} color={colors.onBrandPrimary}>{user.name[0]}</T></View><View style={{ flex: 1 }}><T size={18} weight="800">{user.name}</T><T size={11} muted>{user.guest ? 'Menjelajah tanpa akun' : user.email}</T></View><Badge text={settings.pro_preview ? 'PRO PREVIEW' : 'SAHABAT'} gold={settings.pro_preview} /></Card>
-    <Tap testID="settings-pro-button" style={s.proBanner} onPress={() => go('pro')}><ImageBackground source={IMG.hajj} style={s.proBg} imageStyle={{ borderRadius: 26 }}><LinearGradient colors={[colors.heroShade, colors.transparent]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={s.proShade} /><View style={{ flex: 1, gap: 8, padding: 20, maxWidth: '68%' }}><Badge text="AZAM PRO" gold icon="sparkles" light /><T size={20} weight="800" color={colors.heroInk}>Haji & Umroh,{"\n"}suara premium, tema.</T><T size={11} color={colors.goldText}>Jelajahi pratinjau Pro →</T></View></ImageBackground></Tap>
-    <View style={s.group}><Section title="Preferensi ibadah" /><Card style={s.groupCard}>
-      <SettingRow testID="settings-location-button" icon="location-outline" title="Lokasi & jadwal salat" value={`${settings.city} · Kemenag RI`} onPress={() => setModal({ type: 'location' })} />
-      <SettingRow testID="settings-notifications-button" icon="notifications-outline" title="Notifikasi salat" value={settings.notifications ? 'Izin diaktifkan' : 'Ketuk untuk mengatur izin'} onPress={() => setModal({ type: 'notifications' })} />
-      <View style={s.settingRow}><IconBox name="volume-high-outline" size={40} icon={19} /><View style={{ flex: 1 }}><T size={13} weight="600">Suara azan</T><T size={10} muted>{settings.adhan_sound ? 'Azan berkumandang saat waktu salat tiba' : 'Hanya pengingat tanpa suara azan'}</T></View><Switch testID="settings-adhan-switch" value={!!settings.adhan_sound} onValueChange={(v) => updateSettings({ adhan_sound: v })} trackColor={{ false: colors.borderStrong, true: colors.brandPrimary }} thumbColor={colors.white} /></View>
-      <SettingRow testID="settings-reminder-button" icon="hourglass-outline" title="Blokir sebelum azan" value={`${settings.reminder_minutes} menit · atur di App Blocker`} onPress={() => go('focus')} />
-      <SettingRow testID="settings-alarm-button" icon="alarm-outline" title="Alarm dzikir" value={`${(alarms.data || []).filter((a: any) => a.enabled).length} alarm aktif · tanggal, jam & pengulangan`} onPress={() => go('alarms')} />
-      <View style={s.settingRow}><IconBox name="people-outline" size={40} icon={19} /><View style={{ flex: 1 }}><T size={13} weight="600">Jenis kelamin</T><T size={10} muted>{gender}</T></View><View style={{ flexDirection: 'row', gap: 6 }}>{[['pria', 'man'], ['wanita', 'woman']].map(([key, icon]) => <Tap key={key} testID={`settings-gender-${key}`} onPress={() => updateSettings({ gender: key })} style={[s.genderBtn, settings.gender === key && s.genderOn]}><Icon name={icon} size={18} color={settings.gender === key ? colors.onBrandPrimary : colors.muted} /></Tap>)}</View></View>
+  const { user, settings, updateSettings, setModal, go, setShowIntro, lastTab, alarms } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { t } = useI18n();
+  const gender = settings.gender === 'wanita' ? t('settings.female') : settings.gender === 'pria' ? t('settings.male') : t('settings.unset');
+  const language = LANGUAGES.find(l => l.key === settings.language) || LANGUAGES[0];
+  const switchTrack = { false: colors.solidStrong, true: colors.brandPrimary };
+  return <Page title={t('settings.title')} back={lastTab} subtitle={t('settings.subtitle')}>
+    <Card style={s.profile} testID="settings-profile-card"><ProfilePhoto /><View style={{ flex: 1, gap: 2 }}><T size={18} weight="800" testID="settings-user-name">{user.name}</T><T size={11} muted>{user.guest ? t('settings.guest') : user.email}</T><Tap testID="settings-edit-name-button" onPress={() => setModal({ type: 'profile' })} style={s.editName}><Icon name="pencil" size={12} color={colors.onBrandSecondary} /><T size={11} weight="700" color={colors.onBrandSecondary}>{t('settings.editName')}</T></Tap></View><Badge text={settings.pro_preview ? 'PRO PREVIEW' : 'SAHABAT'} gold={settings.pro_preview} /></Card>
+    <Tap testID="settings-pro-button" style={s.proBanner} onPress={() => go('pro')}><ImageBackground source={IMG.heroBirds} style={s.proBg} imageStyle={{ borderRadius: 26 }}><LinearGradient colors={[colors.heroShade, colors.transparent]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={s.proShade} /><View style={{ flex: 1, gap: 8, padding: 20, maxWidth: '72%' }}><Badge text="AZAM PRO" gold icon="sparkles" light /><T size={19} weight="800" color={colors.heroInk}>{t('settings.proBanner')}</T><T size={11} color={colors.goldText}>{t('settings.proLink')}</T></View></ImageBackground></Tap>
+    <View style={s.group}><Section title={t('settings.worship')} /><Card style={s.groupCard}>
+      <SettingRow testID="settings-location-button" icon="location-outline" title={t('settings.location')} value={`${settings.city} · Kemenag RI`} onPress={() => setModal({ type: 'location' })} />
+      <SettingRow testID="settings-notifications-button" icon="notifications-outline" title={t('settings.notifications')} value={settings.notifications ? t('settings.notifOn') : t('settings.notifOff')} onPress={() => setModal({ type: 'notifications' })} />
+      <View style={s.settingRow}><IconBox name="volume-high-outline" size={40} icon={19} /><View style={{ flex: 1 }}><T size={13} weight="600">{t('settings.adhan')}</T><T size={10} muted>{settings.adhan_sound ? t('settings.adhanOn') : t('settings.adhanOff')}</T></View><Switch testID="settings-adhan-switch" value={!!settings.adhan_sound} onValueChange={(v) => updateSettings({ adhan_sound: v })} trackColor={switchTrack} thumbColor={colors.white} ios_backgroundColor={colors.solidStrong} /></View>
+      <SettingRow testID="settings-sunnah-button" icon="moon-outline" gold title={t('settings.sunnah')} value={t('settings.sunnahValue', { n: (settings.sunnah_reminders || []).length })} onPress={() => go('sunnah')} />
+      <SettingRow testID="settings-reminder-button" icon="hourglass-outline" title={t('settings.blockBefore')} value={t('settings.blockValue', { n: settings.reminder_minutes })} onPress={() => go('focus')} />
+      <SettingRow testID="settings-alarm-button" icon="alarm-outline" title={t('settings.alarm')} value={t('settings.alarmValue', { n: (alarms.data || []).filter((a: any) => a.enabled).length })} onPress={() => go('alarms')} />
+      <View style={s.settingRow}><IconBox name="people-outline" size={40} icon={19} /><View style={{ flex: 1 }}><T size={13} weight="600">{t('settings.gender')}</T><T size={10} muted>{gender}</T></View><View style={{ flexDirection: 'row', gap: 6 }}>{[['pria', 'man'], ['wanita', 'woman']].map(([key, icon]) => <Tap key={key} testID={`settings-gender-${key}`} onPress={() => updateSettings({ gender: key })} style={[s.genderBtn, settings.gender === key && s.genderOn]}><Icon name={icon} size={18} color={settings.gender === key ? colors.onBrandPrimary : colors.muted} /></Tap>)}</View></View>
     </Card></View>
-    <View style={s.group}><Section title="Tampilan & kenyamanan" /><Card style={s.groupCard}>
-      <View style={s.settingRow}><IconBox name="moon-outline" size={40} icon={19} /><View style={{ flex: 1 }}><T size={13} weight="600">Mode malam</T><T size={10} muted>Biru lebih pekat · pratinjau Pro</T></View><Switch testID="settings-dark-theme-switch" value={settings.dark} onValueChange={(v) => updateSettings({ dark: v, pro_preview: v || settings.pro_preview })} trackColor={{ false: colors.borderStrong, true: colors.brandPrimary }} thumbColor={colors.white} /></View>
-      <SettingRow testID="settings-ambient-button" icon="rainy-outline" title="Suasana tenang" value={`Hujan ${Math.round(settings.rain_volume * 100)}% · Kucing ${Math.round(settings.cat_volume * 100)}% · ramah ADHD`} onPress={() => setModal({ type: 'ambient' })} />
-      <SettingRow testID="settings-widget-button" icon="grid-outline" title="Widget & ikon" value="Pratinjau desain Pro" onPress={() => setModal({ type: 'widget-preview' })} />
-      <SettingRow testID="settings-ads-button" icon="megaphone-outline" title="Tentang iklan" value="Belum ada iklan pada versi ini" onPress={() => setModal({ type: 'info', title: 'Ruang iklan', message: 'Versi ini belum menampilkan iklan dan belum terhubung ke jaringan iklan. Opsi bebas iklan direncanakan untuk Azam Pro.' })} />
+    <View style={s.group}><Section title={t('settings.display')} /><Card style={s.groupCard}>
+      <SettingRow testID="settings-language-button" icon="language-outline" title={t('settings.language')} value={`${language.native} · ${language.label}`} onPress={() => setModal({ type: 'language' })}><View style={s.langPill}><T size={10} weight="800" color={colors.onBrandSecondary}>{language.flag}</T></View></SettingRow>
+      <View style={s.settingRow}><IconBox name="moon-outline" size={40} icon={19} /><View style={{ flex: 1 }}><T size={13} weight="600">{t('settings.dark')}</T><T size={10} muted>{t('settings.darkSub')}</T></View><Switch testID="settings-dark-theme-switch" value={settings.dark} onValueChange={(v) => updateSettings({ dark: v, pro_preview: v || settings.pro_preview })} trackColor={switchTrack} thumbColor={colors.white} ios_backgroundColor={colors.solidStrong} /></View>
+      <SettingRow testID="settings-ambient-button" icon="rainy-outline" title={t('settings.ambient')} value={t('settings.ambientValue', { r: Math.round(settings.rain_volume * 100), c: Math.round(settings.cat_volume * 100) })} onPress={() => setModal({ type: 'ambient' })} />
+      <SettingRow testID="settings-widget-button" icon="grid-outline" title={t('settings.widget')} value={t('settings.widgetSub')} onPress={() => setModal({ type: 'widget-preview' })} />
+      <SettingRow testID="settings-ads-button" icon="megaphone-outline" title={t('settings.ads')} value={t('settings.adsSub')} onPress={() => setModal({ type: 'info', title: 'Ruang iklan', message: 'Versi ini belum menampilkan iklan dan belum terhubung ke jaringan iklan. Opsi bebas iklan direncanakan untuk Azam Pro.' })} />
     </Card></View>
-    <View style={s.group}><Section title="Tentang Azam" /><Card style={s.groupCard}>
-      <SettingRow testID="settings-guide-button" icon="play-circle-outline" title="Lihat lagi cara penggunaan" onPress={() => setShowIntro(true)} />
-      <SettingRow testID="settings-privacy-button" icon="shield-checkmark-outline" title="Privasi & sumber data" onPress={() => setModal({ type: 'info', title: 'Privasi & sumber data', message: 'Azam menyimpan pengaturan dan catatan salat pada server untuk sesi Anda. Koordinat dikirim ke AlAdhan untuk perhitungan jadwal; lokasi tidak dilacak di latar belakang. Al-Qur’an dan terjemahan Indonesia berasal dari EQuran.id. Login Google dikelola Emergent. Tidak ada rekaman suara yang dikirim pada versi ini.\n\nSuara azan: “Adhan wiki” dari Wikimedia Commons, lisensi CC BY-SA 3.0. Kalender Hijriah: perhitungan Umm al-Qura.' })} />
-      <SettingRow testID="settings-version-button" icon="information-circle-outline" title="Azam – App Blocker" value="Versi 2.0 · Dengan niat baik" onPress={() => setModal({ type: 'info', title: 'Tentang versi ini', message: 'Fitur aktif: jadwal salat dengan suara azan, Al-Qur’an, arah kiblat, catatan salat, kalender & hari besar Islam, pencapaian, panduan Haji & Umrah bertahap, alarm dzikir dengan tanggal & jam (berbunyi lewat notifikasi HP), suasana tenang, dan mode malam. Pemblokir aplikasi, widget sistem, dan penghitung rakaat otomatis masih memerlukan integrasi native. Semua demonstrasi diberi label.' })} />
+    <View style={s.group}><Section title={t('settings.about')} /><Card style={s.groupCard}>
+      <SettingRow testID="settings-guide-button" icon="play-circle-outline" title={t('settings.guide')} onPress={() => setShowIntro(true)} />
+      <SettingRow testID="settings-privacy-button" icon="shield-checkmark-outline" title={t('settings.privacy')} onPress={() => setModal({ type: 'info', title: 'Privasi & sumber data', message: 'Azam menyimpan pengaturan, foto profil, dan catatan salat pada server untuk sesi Anda. Foto profil disimpan di penyimpanan terkelola dan hanya dapat dilihat oleh akun Anda. Koordinat dikirim ke AlAdhan untuk perhitungan jadwal; lokasi tidak dilacak di latar belakang. Al-Qur’an dan terjemahan Indonesia berasal dari EQuran.id. Login Google dikelola Emergent. Tidak ada rekaman suara yang dikirim pada versi ini.\n\nSuara azan: “Adhan wiki” dari Wikimedia Commons, lisensi CC BY-SA 3.0. Kalender Hijriah: perhitungan Umm al-Qura.' })} />
+      <SettingRow testID="settings-version-button" icon="information-circle-outline" title={t('settings.version')} value={t('settings.versionSub')} onPress={() => setModal({ type: 'info', title: 'Tentang versi ini', message: 'Fitur aktif: jadwal salat dengan suara azan, pengingat salat sunah (Pro), Al-Qur’an, arah kiblat, catatan salat, kalender & hari besar Islam, pencapaian, panduan Haji & Umrah bertahap, alarm dzikir dengan tanggal & jam (berbunyi lewat notifikasi HP), suasana tenang, mode malam, foto profil, dan 4 bahasa antarmuka. Pemblokir aplikasi, widget sistem, dan penghitung rakaat otomatis masih memerlukan integrasi native. Semua demonstrasi diberi label.' })} />
     </Card></View>
-    <Button testID="settings-logout-button" title="Keluar dari sesi" variant="secondary" icon="log-out-outline" onPress={() => setModal({ type: 'logout' })} />
-    <T style={{ textAlign: 'center' }} size={10} muted>Dibuat untuk jeda yang lebih bermakna.</T>
+    <Button testID="settings-logout-button" title={t('settings.logout')} variant="secondary" icon="log-out-outline" onPress={() => setModal({ type: 'logout' })} />
+    <T style={{ textAlign: 'center' }} size={10} muted>{t('settings.footer')}</T>
   </Page>;
 }
 
 export function Pro() {
-  const { settings, updateSettings, setModal, go, notify, lastTab } = useApp(); const s = useStyles(); const { colors } = useTheme();
+  const { settings, updateSettings, setModal, go, notify, lastTab } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { t } = useI18n();
   const shimmer = useSharedValue(0);
   useEffect(() => { shimmer.value = withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true); }, [shimmer]);
   const glow = useAnimatedStyle(() => ({ opacity: 0.35 + shimmer.value * 0.45, transform: [{ translateX: -120 + shimmer.value * 240 }] }));
+  // Lead with the broadly-wanted features; Hajj & Umrah sits later so newcomers do not assume Pro is pilgrimage-only.
   const features = [
-    { icon: 'navigate-circle', title: 'Haji & Umrah', text: 'Panduan bertahap: persiapan, umrah, haji, doa.', badge: 'Buka panduan', action: () => go('hajj'), available: true, image: IMG.hajj },
-    { icon: 'musical-notes', title: 'Suara premium', text: `${PRO_AMBIENTS.map(a => a.label).join(' · ')}`, badge: 'Segera hadir', action: () => setModal({ type: 'ambient' }), available: false, image: IMG.rain },
-    { icon: 'moon', title: 'Mode malam', text: 'Biru pekat, nyaman saat qiyamul lail.', badge: settings.dark ? 'Aktif ✓' : 'Coba sekarang', action: () => updateSettings({ dark: !settings.dark, pro_preview: true }), available: true },
-    { icon: 'shield-checkmark', title: 'Jeda dengan ayat', text: 'Layar jeda salat menampilkan ayat harian.', badge: 'Demonstrasi', action: () => setModal({ type: 'blocker', pro: true, prayer: 'Magrib' }), available: true },
-    { icon: 'grid', title: 'Widget layar kunci', text: 'Ayat harian & hitung mundur azan.', badge: 'Lihat desain', action: () => setModal({ type: 'widget-preview' }), available: true },
-    { icon: 'radio', title: 'Penghitung rakaat', text: 'Riset sensor · belum tersedia.', badge: 'Konsep', action: () => setModal({ type: 'rakaat-preview' }), available: false },
+    { icon: 'moon', title: t('pro.f.sunnah'), text: t('pro.f.sunnahText'), badge: t('pro.f.sunnahBadge'), action: () => go('sunnah'), available: true, image: IMG.heroBirds },
+    { icon: 'contrast', title: t('pro.f.dark'), text: t('pro.f.darkText'), badge: settings.dark ? t('pro.f.darkOn') : t('pro.f.darkTry'), action: () => updateSettings({ dark: !settings.dark, pro_preview: true }), available: true },
+    { icon: 'musical-notes', title: t('pro.f.sound'), text: `${PRO_AMBIENTS.map(a => a.label).join(' · ')}`, badge: t('common.soon'), action: () => setModal({ type: 'ambient' }), available: false, image: IMG.rain },
+    { icon: 'shield-checkmark', title: t('pro.f.verse'), text: t('pro.f.verseText'), badge: t('pro.f.demo'), action: () => setModal({ type: 'blocker', pro: true, prayer: 'Magrib' }), available: true },
+    { icon: 'grid', title: t('pro.f.widget'), text: t('pro.f.widgetText'), badge: t('pro.f.widgetBadge'), action: () => setModal({ type: 'widget-preview' }), available: true },
+    { icon: 'navigate-circle', title: t('pro.f.hajj'), text: t('pro.f.hajjText'), badge: t('pro.f.hajjBadge'), action: () => go('hajj'), available: true, image: IMG.hajj },
+    { icon: 'radio', title: t('pro.f.rakaat'), text: t('pro.f.rakaatText'), badge: t('pro.f.concept'), action: () => setModal({ type: 'rakaat-preview' }), available: false },
   ];
-  const compare = [['Jadwal salat, Al-Qur’an, kiblat, streak', true, true], ['Hujan & kucing (volume)', true, true], ['Panduan Haji & Umroh', false, true], ['Suara premium: petir, ombak, api, burung', false, true], ['Mode malam & widget layar kunci', false, true], ['Jeda salat dengan ayat', false, true], ['Bebas iklan selamanya', false, true]];
-  return <Page title="Azam Pro" back={lastTab === 'home' ? 'settings' : lastTab} subtitle="Ruang yang lebih personal untuk iman.">
-    <ImageBackground source={IMG.hajj} style={s.proHero} imageStyle={{ borderRadius: 28 }} testID="pro-hero"><LinearGradient colors={[colors.transparent, colors.overlay, colors.heroShade]} style={s.proShade} />
+  const compare = [[t('pro.c.basic'), true, true], [t('pro.c.ambient'), true, true], [t('pro.c.sunnah'), false, true], [t('pro.c.dark'), false, true], [t('pro.c.sound'), false, true], [t('pro.c.verse'), false, true], [t('pro.c.hajj'), false, true], [t('pro.c.ads'), false, true]];
+  return <Page title={t('pro.title')} back={lastTab === 'home' ? 'settings' : lastTab} subtitle={t('pro.subtitle')}>
+    <ImageBackground source={IMG.heroBirds} style={s.proHero} imageStyle={{ borderRadius: 28 }} testID="pro-hero"><LinearGradient colors={[colors.transparent, colors.overlay, colors.heroShade]} style={s.proShade} />
       <Animated.View pointerEvents="none" style={[s.shimmer, glow]}><LinearGradient colors={[colors.transparent, colors.goldSoft, colors.transparent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1 }} /></Animated.View>
-      <View style={{ padding: 20, gap: 8 }}><Badge text={settings.pro_preview ? 'PRATINJAU PRO AKTIF' : 'AZAM PRO'} gold icon="sparkles" light /><T size={30} weight="800" color={colors.heroInk} style={{ letterSpacing: -1, lineHeight: 36 }}>Sedikit jeda.{"\n"}Lebih banyak makna.</T><T size={12} color={colors.heroMuted}>Semua ibadah utama tetap gratis. Pro menambah kedalaman: panduan, suara, tema, widget.</T></View></ImageBackground>
-    <View style={s.planRow}>{[['Bulanan', 'Fleksibel, berhenti kapan saja', 'pro-plan-monthly'], ['Tahunan', 'Paling hemat · 2 bulan gratis', 'pro-plan-yearly']].map(([name, text, id], i) => <Tap key={String(name)} testID={String(id)} onPress={() => notify('Langganan Pro dibuka setelah pembayaran aktif. Nikmati pratinjau gratis dulu.')} style={[s.plan, i === 1 && s.planBest]}>{i === 1 && <View style={s.bestTag}><T size={9} weight="800" color={colors.goldInk}>TERBAIK</T></View>}<T size={11} weight="700" color={colors.goldText}>{name}</T><T size={22} weight="800">Segera</T><T size={10} muted>{text}</T></Tap>)}</View>
-    <Button testID="pro-preview-button" title={settings.pro_preview ? 'Pratinjau Pro aktif ✓' : 'Coba pratinjau Pro gratis'} icon="sparkles" variant="gold" onPress={() => updateSettings({ pro_preview: !settings.pro_preview })} />
-    <Section title="Yang kamu dapatkan" />
+      <View style={{ padding: 20, gap: 8 }}><Badge text={settings.pro_preview ? t('pro.heroBadgeActive') : t('pro.heroBadge')} gold icon="sparkles" light /><T size={30} weight="800" color={colors.heroInk} style={{ letterSpacing: -1, lineHeight: 36 }}>{t('pro.heroTitle')}</T><T size={12} color={colors.heroMuted}>{t('pro.heroText')}</T></View></ImageBackground>
+    <View style={s.planRow}>{[[t('pro.monthly'), t('pro.monthlySub'), 'pro-plan-monthly'], [t('pro.yearly'), t('pro.yearlySub'), 'pro-plan-yearly']].map(([name, text, id], i) => <Tap key={String(id)} testID={String(id)} onPress={() => notify(t('pro.paymentSoon'))} style={[s.plan, i === 1 && s.planBest]}>{i === 1 && <View style={s.bestTag}><T size={9} weight="800" color={colors.goldInk}>{t('pro.best')}</T></View>}<T size={11} weight="700" color={colors.goldText}>{name}</T><T size={22} weight="800">{t('pro.soonPrice')}</T><T size={10} muted>{text}</T></Tap>)}</View>
+    <Button testID="pro-preview-button" title={settings.pro_preview ? t('pro.previewOn') : t('pro.previewTry')} icon="sparkles" variant="gold" onPress={() => updateSettings({ pro_preview: !settings.pro_preview })} />
+    <Section title={t('pro.get')} />
     <View style={s.featureGrid}>{features.map((f, i) => <Tap testID={`pro-feature-${i}`} key={f.title} style={[s.featureCard, !f.available && s.featureLocked]} onPress={f.action}>
       {f.image ? <ImageBackground source={f.image} style={s.featureArt} imageStyle={{ borderRadius: 16 }}><LinearGradient colors={[colors.transparent, colors.overlay]} style={[s.proShade, { borderRadius: 16 }]} /><Icon name={f.icon} size={22} color={colors.gold} /></ImageBackground> : <IconBox name={f.icon} size={48} icon={22} bg={f.available ? colors.goldSoft : undefined} color={f.available ? colors.goldText : colors.muted} />}
       <T size={14} weight="800">{f.title}</T><T size={11} muted numberOfLines={2}>{f.text}</T><View style={s.featureBadge}><T size={10} weight="700" color={f.available ? colors.goldText : colors.muted}>{f.badge}</T><Icon name={f.available ? 'arrow-forward' : 'lock-closed-outline'} size={12} color={f.available ? colors.goldText : colors.muted} /></View></Tap>)}</View>
-    <Section title="Gratis vs Pro" /><Card style={{ gap: 0, padding: 0, overflow: 'hidden' }}><View style={[s.compareRow, { backgroundColor: colors.goldSoft }]}><T size={11} weight="800" style={{ flex: 1 }}>Fitur</T><T size={11} weight="800" style={s.compareCol}>Gratis</T><T size={11} weight="800" color={colors.goldText} style={s.compareCol}>Pro</T></View>
+    <Section title={t('pro.compare')} /><Card style={{ gap: 0, padding: 0, overflow: 'hidden' }}><View style={[s.compareRow, { backgroundColor: colors.goldSoft }]}><T size={11} weight="800" style={{ flex: 1 }}>{t('pro.feature')}</T><T size={11} weight="800" style={s.compareCol}>{t('pro.free')}</T><T size={11} weight="800" color={colors.goldText} style={s.compareCol}>Pro</T></View>
       {compare.map(([label, free, pro]) => <View key={String(label)} style={s.compareRow}><T size={12} style={{ flex: 1 }}>{label}</T><View style={s.compareCol}><Icon name={free ? 'checkmark-circle' : 'remove-circle-outline'} size={18} color={free ? colors.success : colors.muted} /></View><View style={s.compareCol}><Icon name={pro ? 'checkmark-circle' : 'remove-circle-outline'} size={18} color={colors.goldText} /></View></View>)}</Card>
-    <T muted size={11} style={{ textAlign: 'center' }}>Belum ada tagihan pada versi ini. Al-Qur’an lengkap dan terjemahan tetap gratis untuk semua.</T>
+    <T muted size={11} style={{ textAlign: 'center' }}>{t('pro.footer')}</T>
   </Page>;
 }
 
 const useStyles = makeStyles(c => ({
-  profile: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 16 }, avatar: { width: 47, height: 47, borderRadius: 17, backgroundColor: c.brandPrimary, alignItems: 'center', justifyContent: 'center' },
+  profile: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 16 }, photoCol: { alignItems: 'center', gap: 2 }, avatarWrap: { width: 72, height: 72 },
+  camBadge: { position: 'absolute', right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: c.brandPrimary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.surface },
+  editName: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 28, alignSelf: 'flex-start' }, langPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: c.brandSecondary },
   proBanner: { borderRadius: 26, overflow: 'hidden' }, proBg: { minHeight: 150, justifyContent: 'center' }, proShade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 26 },
   group: { gap: 10 }, groupCard: { paddingVertical: 4, paddingHorizontal: 14 }, settingRow: { flexDirection: 'row', gap: 12, alignItems: 'center', minHeight: 70, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.divider },
   genderBtn: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, genderOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary },

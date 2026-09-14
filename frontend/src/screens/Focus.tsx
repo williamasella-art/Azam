@@ -9,24 +9,28 @@ import { AnimatedCat } from '@/src/components/AnimatedCat';
 import { PRAYER_ICONS } from '@/src/components/SocialDemo';
 import { APP_CATEGORIES } from '@/src/components/FormSheets';
 import { describeRepeat, showTime, soonest, untilText } from '@/src/alarms';
+import { useI18n } from '@/src/i18n';
 
 export const APPS: { name: string; icon: string; color: string }[] = [
   { name: 'Instagram', icon: 'logo-instagram', color: 'instagram' }, { name: 'TikTok', icon: 'logo-tiktok', color: 'tiktok' }, { name: 'YouTube', icon: 'logo-youtube', color: 'youtube' },
   { name: 'X', icon: 'logo-twitter', color: 'x' }, { name: 'Facebook', icon: 'logo-facebook', color: 'facebook' }, { name: 'Chrome', icon: 'logo-chrome', color: 'chrome' }, { name: 'Game', icon: 'game-controller', color: 'game' },
 ];
 export function Focus() {
-  const { settings, updateSettings, setModal, go, alarms, now } = useApp(); const s = useStyles(); const { colors } = useTheme();
+  const { settings, updateSettings, setModal, go, alarms, now } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { t } = useI18n();
   const nextAlarm = soonest(alarms.data, now); const activeAlarms = (alarms.data || []).filter((a: any) => a.enabled).length;
   const togglePrayer = (name: string) => updateSettings({ blocked_prayers: settings.blocked_prayers.includes(name) ? settings.blocked_prayers.filter((p: string) => p !== name) : [...settings.blocked_prayers, name] });
   const toggleApp = (name: string) => updateSettings({ blocked_apps: settings.blocked_apps.includes(name) ? settings.blocked_apps.filter((p: string) => p !== name) : [...settings.blocked_apps, name] });
   const removeApp = (name: string) => updateSettings({ custom_apps: (settings.custom_apps || []).filter((a: any) => a.name !== name), blocked_apps: settings.blocked_apps.filter((p: string) => p !== name) });
   const customApps: any[] = settings.custom_apps || [];
-  return <Page title="App Blocker" subtitle="Dunia bisa menunggu. Salat dulu.">
+  return <Page title={t('focus.title')} subtitle={t('focus.subtitle')}>
     <ImageBackground source={IMG.instagram} style={s.hero} imageStyle={{ borderRadius: 28 }}>
       <LinearGradient colors={[colors.transparent, colors.overlay, colors.heroShade]} locations={[0, 0.5, 1]} style={s.shade} />
-      <View style={s.heroBody}><Badge text="DEMONSTRASI DALAM APLIKASI" icon="sparkles-outline" light />
-        <View style={s.row}><View style={{ flex: 1 }}><T size={20} weight="800" color={colors.heroInk}>Pemblokiran aplikasi</T><T size={11} color={colors.heroMuted}>{settings.blocker_enabled ? `Aktif · ${settings.reminder_minutes} menit sebelum azan` : 'Nonaktif · ketuk untuk mengaktifkan'}</T></View>
-          <Switch testID="blocker-enabled-switch" value={settings.blocker_enabled} onValueChange={(value) => updateSettings({ blocker_enabled: value })} trackColor={{ false: colors.borderStrong, true: colors.brandPrimary }} thumbColor={colors.white} /></View>
+      <View style={s.heroBody}><Badge text={t('focus.demo')} icon="sparkles-outline" light />
+        <View style={s.row}><View style={{ flex: 1 }}><T size={20} weight="800" color={colors.heroInk}>{t('focus.blocking')}</T><T size={11} color={colors.heroMuted}>{settings.blocker_enabled ? t('focus.onSub', { n: settings.reminder_minutes }) : t('focus.offSub')}</T></View>
+          <Tap testID="blocker-enabled-toggle" haptic={false} onPress={() => updateSettings({ blocker_enabled: !settings.blocker_enabled })} style={s.togglePill} accessibilityRole="switch" accessibilityState={{ checked: !!settings.blocker_enabled }}>
+            <T size={10} weight="800" color={colors.heroShade} style={{ letterSpacing: 0.8 }}>{settings.blocker_enabled ? 'ON' : 'OFF'}</T>
+            <Switch testID="blocker-enabled-switch" value={!!settings.blocker_enabled} onValueChange={(value) => updateSettings({ blocker_enabled: value })} trackColor={{ false: colors.solidStrong, true: colors.success }} thumbColor={colors.white} ios_backgroundColor={colors.solidStrong} />
+          </Tap></View>
       </View>
     </ImageBackground>
     <Card style={s.card}>
@@ -60,7 +64,7 @@ export function Focus() {
   </Page>;
 }
 const useStyles = makeStyles(c => ({
-  hero: { height: 210, borderRadius: 28, justifyContent: 'flex-end' }, shade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28 }, heroBody: { padding: 18, gap: 10 },
+  hero: { height: 210, borderRadius: 28, justifyContent: 'flex-end' }, togglePill: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 12, paddingRight: 6, paddingVertical: 5, borderRadius: 22, backgroundColor: c.white, shadowColor: c.black, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 }, shade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28 }, heroBody: { padding: 18, gap: 10 },
   card: { gap: 16 }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, chipRow: { flexDirection: 'row', gap: 8 },
   minute: { flex: 1, minHeight: 64, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, minuteOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary },
   prayerChip: { flex: 1, minHeight: 66, borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, prayerOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary }, check: { position: 'absolute', top: 5, right: 5, width: 16, height: 16, borderRadius: 8, backgroundColor: c.success, alignItems: 'center', justifyContent: 'center' },
