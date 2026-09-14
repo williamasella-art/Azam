@@ -59,7 +59,7 @@ export function LevelUpOverlay() {
       </Animated.View>
     </View>
     <Animated.View entering={FadeInUp.delay(500).duration(500)} style={s.actions}>
-      <Button testID="levelup-share-button" title="Bagikan ke Story" icon="share-social" variant="gold" onPress={() => setModal({ type: 'share-progress' })} />
+      <Button testID="levelup-share-button" title="Bagikan lencana ke Story" icon="share-social" variant="gold" onPress={() => setModal({ type: 'share-badge', level: progress.data?.levels?.find((l: any) => l.name === level) || { name: level, days: 0, unlocked: true } })} />
       <Button testID="levelup-continue-button" title="Lanjutkan" variant="secondary" onPress={() => setModal(null)} />
     </Animated.View>
   </Bg>;

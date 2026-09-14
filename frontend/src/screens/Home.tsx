@@ -8,6 +8,7 @@ import { IMG } from '@/src/assets';
 import { Badge, Bg, Icon, IconBox, Logo, Paper, Section, Status, T, Tap } from '@/src/components/ui';
 import { PRAYER_ICONS } from '@/src/components/SocialDemo';
 import { PulseFlame, SkyLife } from '@/src/components/SkyLife';
+import { StreakNudge } from '@/src/components/StreakNudge';
 
 export function Home() {
   const { settings, user, go, prayers, tomorrowPrayers, progress, daily, now, setModal, checkin, checking, read } = useApp();
@@ -54,6 +55,7 @@ export function Home() {
           })}</View>
           {prayers.error && <T size={11} muted>Jadwal belum tersedia. Coba muat ulang di kartu atas.</T>}
         </View>
+        <StreakNudge list={list} complete={complete} timeNow={timeNow} />
         <Tap testID="home-focus-button" onPress={() => go('focus')} style={s.blockerCard}><Image source={IMG.instagram} style={s.blockerArt} /><View style={{ flex: 1, gap: 4 }}><Badge text={settings.blocker_enabled ? 'BLOKIR AKTIF' : 'BLOKIR NONAKTIF'} icon={settings.blocker_enabled ? 'shield-checkmark' : 'shield-outline'} /><T weight="700" size={14}>Jeda aplikasi saat azan</T><T size={11} muted>{settings.blocker_enabled ? `${settings.reminder_minutes} menit sebelum azan · ${settings.blocked_apps.length} aplikasi` : 'Ketuk untuk mengaktifkan pemblokir'}</T></View><Icon name="chevron-forward" size={18} color={colors.muted} /></Tap>
         <View style={s.quickRow}>
           <Tap testID="home-qibla-button" style={s.quickCard} onPress={() => go('qibla')}><Image source={IMG.kaaba} style={s.quickArt} /><T weight="700" size={13}>Kiblat</T><T size={10} muted>Arah Ka’bah</T></Tap>

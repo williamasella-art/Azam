@@ -85,6 +85,14 @@ Indonesian Muslim companion app: reduce distracting app use at prayer times, wak
 - Testing agent iteration 4 (`/app/test_reports/iteration_4.json`): 15/15 backend; 3 pintu masuk share (Progres → Story, check-in sukses, ayat harian), 4 latar, 3 nuansa, 4 caption, 2 toggle, fallback teks di web + toast gagal + reset loading semuanya lolos, 0 console error.
 - Catatan minor non-blocking: `accessibilityState.selected` pada `Tap` tidak menghasilkan `aria-selected` di RN-web.
 
+## Implemented — 2026-09-14 (session 5: nudge streak, story lencana, format 9:16)
+- RevenueCat: kembali dilewati atas permintaan pengguna (koneksi RevenueCat belum dibuat di panel payments).
+- `StreakNudge` (Home, di bawah "Salat hari ini"): tampil setelah waktu Magrib bila masih ada salat hari ini yang belum dicatat; chip per salat langsung check-in, tombol tutup menyimpan `streak-nudge:<user_id>:<day>` sehingga tersembunyi sampai hari berganti; hilang otomatis bila 5 salat lengkap.
+- Story lencana: mode baru `share-badge` di `ShareComposer` (LevelBadge besar, "Level X", LEVEL_COPY, pill hari berturut-turut, tanpa toggle statistik). Pintu masuk: `levelup-share-button`, tombol `achievement-share-<nama>` pada slide lencana yang terbuka, dan tautan `achievement-row-share-<nama>` di layar Langit pencapaian.
+- Semua kartu share kini vertikal 9:16 (346×615 di lebar 390) dengan hint "story vertikal 9:16".
+- Testing agent iteration 5 (`/app/test_reports/iteration_5.json`): 15/15 backend, semua alur baru + regresi composer lolos, 0 console error.
+- Widget device test: menunggu pengguna klik Publish → Deploy → Generate iOS/Android builds (konfigurasi widget sudah siap di app.config.ts / targets/widget).
+
 ## Backlog additions
 - Migrate web `shadow*` → `boxShadow` and `pointerEvents` prop → style (web warnings only).
 - Real Pro sounds (thunder/waves/campfire/birds) when payment is added; RevenueCat deferred by user choice.

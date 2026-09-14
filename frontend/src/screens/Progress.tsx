@@ -15,7 +15,7 @@ export function LevelBadge({ name, size = 96, locked = false, style }: { name: s
   </View>;
 }
 export function AchievementSlides({ levels, best }: { levels: any[]; best: number }) {
-  const s = useStyles(); const { colors } = useTheme(); const { width } = useWindowDimensions(); const [index, setIndex] = useState(0);
+  const s = useStyles(); const { colors } = useTheme(); const { width } = useWindowDimensions(); const [index, setIndex] = useState(0); const { setModal } = useApp();
   const cardWidth = Math.min(width, 560) - 44;
   return <View style={{ gap: 10 }}>
     <FlatList testID="achievement-slides" data={levels} horizontal pagingEnabled showsHorizontalScrollIndicator={false} keyExtractor={l => l.name} snapToInterval={cardWidth + 12} decelerationRate="fast"
@@ -26,6 +26,7 @@ export function AchievementSlides({ levels, best }: { levels: any[]; best: numbe
         <View style={{ alignItems: 'center', gap: 4 }}><Badge text={item.unlocked ? 'TERCAPAI ✓' : `${item.days} HARI BERTURUT`} gold={item.unlocked} /><T size={24} weight="800" color={colors.heroInk}>{item.name}</T><T size={12} color={colors.heroMuted} style={{ textAlign: 'center' }}>{LEVEL_COPY[item.name]}</T></View>
         <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, best / item.days * 100)}%` }]} /></View>
         <T size={10} color={colors.heroMuted}>{Math.min(best, item.days)} / {item.days} hari</T>
+        {item.unlocked && <Button size="sm" testID={`achievement-share-${item.name.toLowerCase()}`} title="Bagikan lencana" icon="share-social" variant="gold" onPress={() => setModal({ type: 'share-badge', level: item })} />}
       </ImageBackground>} />
     <View style={s.dots}>{levels.map((l, i) => <View key={l.name} style={[s.dot, i === index && s.dotOn]} />)}</View>
   </View>;
@@ -68,7 +69,8 @@ export function Achievements() {
   const levels = progress.data?.levels || []; const best = progress.data?.best || 0;
   return <Page title="Langit pencapaian" back="progress" subtitle="Setiap langkah kecil membuatmu bersinar.">
     <AchievementSlides levels={levels} best={best} />
-    {levels.map((level: any) => <Card key={level.name} testID={`achievement-row-${level.name.toLowerCase()}`} style={s.levelCard}><LevelBadge name={level.name} size={72} locked={!level.unlocked} /><View style={{ flex: 1, gap: 5 }}><View style={s.monthRow}><T size={17} weight="800">{level.name}</T><Icon name={level.unlocked ? 'checkmark-circle' : 'lock-closed-outline'} size={17} color={level.unlocked ? colors.success : colors.muted} /></View><T size={11} muted>{LEVEL_COPY[level.name]}</T><View style={s.trackDark}><View style={[s.fill, { width: `${Math.min(100, best / level.days * 100)}%` }]} /></View><T size={10} color={colors.onBrandSecondary}>{Math.min(best, level.days)} / {level.days} hari berturut-turut{level.unlocked ? ' · Tercapai' : ''}</T></View></Card>)}
+    {levels.map((level: any) => <Card key={level.name} testID={`achievement-row-${level.name.toLowerCase()}`} style={s.levelCard}><LevelBadge name={level.name} size={72} locked={!level.unlocked} /><View style={{ flex: 1, gap: 5 }}><View style={s.monthRow}><T size={17} weight="800">{level.name}</T><Icon name={level.unlocked ? 'checkmark-circle' : 'lock-closed-outline'} size={17} color={level.unlocked ? colors.success : colors.muted} /></View><T size={11} muted>{LEVEL_COPY[level.name]}</T><View style={s.trackDark}><View style={[s.fill, { width: `${Math.min(100, best / level.days * 100)}%` }]} /></View><T size={10} color={colors.onBrandSecondary}>{Math.min(best, level.days)} / {level.days} hari berturut-turut{level.unlocked ? ' · Tercapai' : ''}</T>
+      {level.unlocked && <Tap testID={`achievement-row-share-${level.name.toLowerCase()}`} onPress={() => setModal({ type: 'share-badge', level })} style={s.rowShare}><Icon name="share-social-outline" size={15} color={colors.goldText} /><T size={11} weight="700" color={colors.goldText}>Bagikan lencana ke Story</T></Tap>}</View></Card>)}
     <Button testID="achievement-share-button" title="Bagikan ke Story" icon="share-social" variant="gold" onPress={() => setModal({ type: 'share-progress' })} />
   </Page>;
 }
@@ -76,7 +78,8 @@ const useStyles = makeStyles(c => ({
   headerButton: { height: 42, paddingHorizontal: 14, backgroundColor: c.brandPrimary, alignItems: 'center', justifyContent: 'center', borderRadius: 14, flexDirection: 'row', gap: 6 },
   streakHero: { flexDirection: 'row', alignItems: 'center', gap: 10, overflow: 'hidden', padding: 20 }, heroBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, streakNumber: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
   statsRow: { flexDirection: 'row', gap: 9 }, stat: { flex: 1, alignItems: 'center', paddingHorizontal: 3, paddingVertical: 16, gap: 4, borderRadius: 20 },
-  slide: { height: 330, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 20, overflow: 'hidden' }, slideShade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  slide: { minHeight: 330, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 20, overflow: 'hidden' }, slideShade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  rowShare: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, marginTop: 2 },
   track: { width: '70%', height: 6, borderRadius: 3, backgroundColor: c.glassStrong, overflow: 'hidden' }, trackDark: { height: 5, borderRadius: 3, backgroundColor: c.surfaceTertiary, overflow: 'hidden', marginTop: 4 }, fill: { height: '100%', borderRadius: 3, backgroundColor: c.gold },
   dots: { flexDirection: 'row', gap: 6, justifyContent: 'center' }, dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: c.glassStrong }, dotOn: { width: 18, backgroundColor: c.brandTertiary },
   calendar: { gap: 14 }, monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, calendarNav: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' }, weekdays: { flexDirection: 'row' }, weekday: { width: '14.2857%', alignItems: 'center' }, calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 6 }, dayCell: { width: '14.2857%', height: 46, justifyContent: 'center', alignItems: 'center', gap: 5, borderRadius: 13 }, today: { backgroundColor: c.paperTint, borderWidth: 1, borderColor: c.brandDeep }, fullDay: { backgroundColor: c.brandDeep }, dayDot: { height: 5, width: 5, borderRadius: 3 }, legend: { flexDirection: 'row', justifyContent: 'center', gap: 13, paddingTop: 4 }, legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },

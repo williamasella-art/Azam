@@ -36,7 +36,7 @@ function RakaatPreview() {
 export function GlobalOverlay() {
   const { modal, setModal, logout } = useApp(); const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets();
   const isDemo = modal?.type === 'blocker' || modal?.type === 'alarm' || modal?.type === 'levelup';
-  const titles: Record<string, string> = { location: 'Atur lokasi', notifications: 'Pengingat salat', 'alarm-settings': 'Alarm dzikir', success: 'Satu langkah baik', 'share-verse': 'Bagikan ayat', 'share-progress': 'Bagikan ke Story', day: 'Catatan salat', 'widget-preview': 'Ayat di layar kunci', 'rakaat-preview': 'Penghitung rakaat', logout: 'Keluar dari Azam?' };
+  const titles: Record<string, string> = { location: 'Atur lokasi', notifications: 'Pengingat salat', 'alarm-settings': 'Alarm dzikir', success: 'Satu langkah baik', 'share-verse': 'Bagikan ayat', 'share-progress': 'Bagikan ke Story', 'share-badge': 'Bagikan lencana', day: 'Catatan salat', 'widget-preview': 'Ayat di layar kunci', 'rakaat-preview': 'Penghitung rakaat', logout: 'Keluar dari Azam?' };
   if (!modal) return null;
   return <Modal key={modal.type} visible transparent={!isDemo} animationType="slide" onRequestClose={() => setModal(null)} statusBarTranslucent>
     <GestureHandlerRootView style={{ flex: 1 }}>{modal && (isDemo ? (modal.type === 'levelup' ? <LevelUpOverlay /> : <DemoOverlay key={modal.type} />) : <KeyboardAvoidingView style={s.modalRoot} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -44,7 +44,7 @@ export function GlobalOverlay() {
       <View style={[s.sheet, { paddingBottom: insets.bottom + 20, marginTop: insets.top + 16 }]}><View style={s.handle} /><View style={s.sheetHeader}><T size={20} weight="800" style={{ flex: 1 }}>{modal.title || titles[modal.type]}</T><Tap testID="modal-close-button" style={s.closeButton} onPress={() => setModal(null)}><Icon name="close" size={22} /></Tap></View>
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.sheetContent}>
           {modal.type === 'location' && <LocationSheet />}{modal.type === 'notifications' && <NotificationSheet />}{modal.type === 'alarm-settings' && <AlarmSettingsSheet />}
-          {['success', 'share-verse', 'share-progress'].includes(modal.type) && <ShareComposer />}{modal.type === 'day' && <DaySheet />}{modal.type === 'widget-preview' && <WidgetPreview />}{modal.type === 'rakaat-preview' && <RakaatPreview />}
+          {['success', 'share-verse', 'share-progress', 'share-badge'].includes(modal.type) && <ShareComposer />}{modal.type === 'day' && <DaySheet />}{modal.type === 'widget-preview' && <WidgetPreview />}{modal.type === 'rakaat-preview' && <RakaatPreview />}
           {modal.type === 'info' && <View style={s.body}><View style={s.verseIcon}><Icon name="information-circle-outline" size={35} color={colors.brandTertiary} /></View><T muted size={15}>{modal.message}</T><Button testID="info-dismiss-button" title="Mengerti" onPress={() => setModal(null)} /></View>}
           {modal.type === 'logout' && <View style={s.body}><T muted>Catatan tamu tidak dapat dipulihkan setelah keluar. Jika menggunakan Google, Anda dapat masuk kembali ke akun yang sama.</T><Button testID="logout-confirm-button" title="Ya, keluar" variant="danger" onPress={logout} /><Button testID="logout-cancel-button" title="Tetap di sini" variant="secondary" onPress={() => setModal(null)} /></View>}
         </ScrollView>
