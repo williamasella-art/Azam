@@ -9,6 +9,7 @@ import { makeStyles, useTheme } from '@/src/theme';
 import { Icon, T, Tap } from '@/src/components/ui';
 import { GlobalOverlay, Toast } from '@/src/components/GlobalOverlay';
 import { PrayerNotifications } from '@/src/components/PrayerNotifications';
+import { WidgetSync } from '@/src/components/WidgetSync';
 import { Loading, Welcome } from '@/src/screens/Welcome';
 import { Intro } from '@/src/screens/Intro';
 import { Home } from '@/src/screens/Home';
@@ -41,7 +42,7 @@ export default function Index() {
             <Icon name={active ? tab.selected : tab.icon} size={22} color={active ? colors.onBrandPrimary : colors.onSurfaceTertiary} /><T size={9} weight="700" color={active ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{tab.label}</T>
           </Tap>;
         })}</View></View>}
-        <PrayerNotifications />
+        <PrayerNotifications /><WidgetSync />
       </>}
       {!modal && <Toast />}
     </SafeAreaView><GlobalOverlay />

@@ -68,6 +68,17 @@ Indonesian Muslim companion app: reduce distracting app use at prayer times, wak
 - Tab label "Blokir" → "Blocker". Intro-seen flag also marks the account onboarded so the guide isn't repeated after login.
 - Testing agent iteration 2: 15/15 backend tests, all frontend flows verified (`/app/test_reports/iteration_2.json`).
 
+## Implemented — 2026-09-14 (session 3: kucing animasi, konfeti level, widget native)
+- `AnimatedCat` (SVG + Reanimated: bernapas, ekor mengibas, kedip, menguap tiap ~7 dtk) di kartu alarm Blocker, kartu Suasana tenang (mengantuk saat suara kucing tidak aktif), dan layar demo alarm.
+- Level-up: `AppContext` menyimpan `levels-seen:<user_id>` di storage; level baru memicu modal `levelup` → `LevelUpOverlay` full-screen (konfeti 44 keping, lencana besar berdenyut, tombol Bagikan ke Story / Lanjutkan, haptic sukses).
+- Widget layar kunci & beranda (hanya build native, no-op di Expo Go/web):
+  - Android: `react-native-android-widget` plugin di app.config.ts (widget `AzamAzan` & `AzamAyat`, font Plus Jakarta Sans/Amiri), komponen `src/widgets/AzamWidgets.tsx`, headless task `src/widgets/widget-task-handler.tsx` didaftarkan lewat entry kustom `frontend/index.js` (package.json `main` → `index.js`, tetap memuat `expo-router/entry`).
+  - iOS: `@bacons/apple-targets` + `targets/widget/` (WidgetKit bundle: systemSmall/Medium/Large + accessoryInline/Rectangular lock-screen, data via App Group `group.com.emergent.qurandaily.fst79v` & `ExtensionStorage`). Entitlement App Group ditambahkan di app.config.ts.
+  - `WidgetSync` (di app/index.tsx) menulis jadwal salat + ayat harian setiap kali berubah; `syncWidgets()` memanggil requestWidgetUpdate / ExtensionStorage.reloadWidget.
+  - Sheet "Widget & ikon" kini menjelaskan cara pasang widget di perangkat (atau pratinjau desain di web/Expo Go).
+- RevenueCat: dilewati atas permintaan pengguna (RevenueCat belum terkoneksi). Saat lanjut: klik Connect RevenueCat di panel payments, lalu jalankan playbook Emergent-managed RevenueCat (paket bulanan + tahunan).
+- Testing agent iteration 3: 15/15 backend, semua alur baru lolos (`/app/test_reports/iteration_3.json`).
+
 ## Backlog additions
 - Migrate web `shadow*` → `boxShadow` and `pointerEvents` prop → style (web warnings only).
 - Real Pro sounds (thunder/waves/campfire/birds) when payment is added; RevenueCat deferred by user choice.

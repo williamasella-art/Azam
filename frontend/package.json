@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.0.0",
   "scripts": {
     "preinstall": "./scripts/cmd-guard.js --preinstall",
@@ -12,6 +12,7 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@bacons/apple-targets": "5.0.0",
     "@expo/metro-runtime": "57.0.15",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -41,6 +42,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-android-widget": "0.22.1",
     "react-native-dotenv": "3.4.11",
     "react-native-gesture-handler": "2.32.0",
     "react-native-reanimated": "4.5.1",

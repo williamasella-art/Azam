@@ -10,6 +10,7 @@ import { DemoOverlay } from './DemoOverlay';
 import { Badge, Button, Card, Icon, T, Tap } from './ui';
 import { LevelBadge } from '@/src/screens/Progress';
 import { ShareComposer } from './ShareComposer';
+import { LevelUpOverlay } from './LevelUp';
 
 export function Toast() {
   const { toast, modal, screen, settings } = useApp(); const s = useStyles(); const insets = useSafeAreaInsets(); if (!toast) return null;
@@ -23,7 +24,7 @@ function DaySheet() {
 }
 function WidgetPreview() {
   const { daily } = useApp(); const s = useStyles(); const { colors } = useTheme(); const [style, setStyle] = useState(0);
-  return <View style={s.body}><Badge text="PRATINJAU DESAIN · BUKAN WIDGET AKTIF" /><T size={12} muted>Lihat tampilan ayat harian. Pemasangan widget layar kunci dan penggantian ikon sistem belum tersedia.</T>
+  return <View style={s.body}><Badge text={Platform.OS === 'web' ? 'PRATINJAU DESAIN · WIDGET AKTIF DI BUILD NATIVE' : 'WIDGET LAYAR KUNCI & BERANDA'} gold={Platform.OS !== 'web'} /><T size={12} muted>{Platform.OS === 'web' ? 'Widget ayat harian dan hitung mundur azan tersedia setelah aplikasi dipasang dari build iOS/Android. Di Expo Go dan web, ini pratinjau desainnya.' : 'Tahan layar beranda atau layar kunci → tambah widget → pilih “Azam”. Ada dua pilihan: Seayat hari ini dan Hitung mundur azan. Data diperbarui setiap kali Azam dibuka.'}</T>
     <ImageBackground source={style === 1 ? IMG.heroBirds : IMG.shareBg} style={s.widgetPhone} imageStyle={{ borderRadius: 32 }}><T size={13} color={colors.heroMuted}>Senin, perjalanan yang baru</T><T size={60} weight="700" color={colors.heroInk}>05.00</T><View style={s.widgetCard}><T size={10} color={colors.heroMuted}>SEAYAT HARI INI</T>{daily.data ? <><T arabic size={22} color={colors.heroInk} style={s.center}>{daily.data.teksArab}</T><T size={11} color={colors.heroMuted} style={s.center}>{daily.data.teksIndonesia}</T><T size={10} color={colors.gold}>QS. {daily.data.surah} : {daily.data.nomorAyat}</T></> : <T muted>Ayat dimuat ketika koneksi tersedia.</T>}</View></ImageBackground>
     <View style={s.optionsRow}>{['Langit', 'Burung'].map((name, index) => <Button key={name} testID={`widget-style-${index}`} style={{ flex: 1 }} title={name} variant={style === index ? 'primary' : 'secondary'} onPress={() => setStyle(index)} />)}</View>
   </View>;
@@ -34,11 +35,11 @@ function RakaatPreview() {
 }
 export function GlobalOverlay() {
   const { modal, setModal, logout } = useApp(); const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets();
-  const isDemo = modal?.type === 'blocker' || modal?.type === 'alarm';
+  const isDemo = modal?.type === 'blocker' || modal?.type === 'alarm' || modal?.type === 'levelup';
   const titles: Record<string, string> = { location: 'Atur lokasi', notifications: 'Pengingat salat', 'alarm-settings': 'Alarm dzikir', success: 'Satu langkah baik', 'share-verse': 'Bagikan ayat', 'share-progress': 'Bagikan ke Story', day: 'Catatan salat', 'widget-preview': 'Ayat di layar kunci', 'rakaat-preview': 'Penghitung rakaat', logout: 'Keluar dari Azam?' };
   if (!modal) return null;
   return <Modal key={modal.type} visible transparent={!isDemo} animationType="slide" onRequestClose={() => setModal(null)} statusBarTranslucent>
-    <GestureHandlerRootView style={{ flex: 1 }}>{modal && (isDemo ? <DemoOverlay key={modal.type} /> : <KeyboardAvoidingView style={s.modalRoot} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <GestureHandlerRootView style={{ flex: 1 }}>{modal && (isDemo ? (modal.type === 'levelup' ? <LevelUpOverlay /> : <DemoOverlay key={modal.type} />) : <KeyboardAvoidingView style={s.modalRoot} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Tap testID="modal-backdrop" onPress={() => setModal(null)} style={s.backdrop}><View /></Tap>
       <View style={[s.sheet, { paddingBottom: insets.bottom + 20, marginTop: insets.top + 16 }]}><View style={s.handle} /><View style={s.sheetHeader}><T size={20} weight="800" style={{ flex: 1 }}>{modal.title || titles[modal.type]}</T><Tap testID="modal-close-button" style={s.closeButton} onPress={() => setModal(null)}><Icon name="close" size={22} /></Tap></View>
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.sheetContent}>

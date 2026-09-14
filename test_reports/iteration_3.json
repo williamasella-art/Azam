@@ -1,0 +1,39 @@
+{
+  "summary": "Backend regression 15/15 PASSED (pytest). Frontend mobile flows (390x844) verified end-to-end on a FRESH guest session: (1) App boots via new entry frontend/index.js; Intro→intro-skip-button→guest-login-button→Home renders next-prayer-card with 0 console errors and 0 widget/native-module errors. (2) Blocker tab (tab-focus): AnimatedCat with accessibilityLabel 'Kucing yang menguap' found; alarm-demo-button opens the demo overlay showing the big animated cat, demo-hold-button and demo-close-button both present and demo-close-button dismisses. (3) Level-up: after tapping prayer-checkin-{subuh,zuhur,asar,magrib,isya} (closing the success sheet with modal-close-button after each), the full-screen level-up overlay appears with levelup-title text 'Level Awan'; levelup-share-button opens the Story composer (share-template visible, share-streak-count='1'); modal-close-button dismisses share, levelup-continue-button dismisses overlay; after reload the level-up does NOT re-appear (seen-levels persisted correctly). (4) Progress tab shows progress-streak-count='1' and the 'Awan' achievement TERCAPAI. (5) Settings → settings-widget-button opens the widget preview sheet, badge text 'PRATINJAU DESAIN · WIDGET AKTIF DI BUILD NATIVE' visible on web, widget-style-0 (Langit) and widget-style-1 (Burung) switch design as expected — the sheet silently no-ops for real widget install as expected. No RN red screen. Only pre-existing benign RN-web warnings remain (shadow* deprecated, pointerEvents deprecated) — carried over from iteration_2.json.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "Style props (shadow*)",
+        "issue": "Recurring RN-web warning '\"shadow*\" style props are deprecated. Use \"boxShadow\".' Not blocking; carried over from iter2. Reference: any StyleSheet using shadowColor/shadowOffset/shadowOpacity/shadowRadius across /app/frontend/src."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_api_core.py",
+    "/app/test_reports/pytest/pytest_iter3.xml"
+  ],
+  "action_items": [
+    "Optional: migrate remaining shadow* style props to boxShadow to silence recurring RN-web warnings (already noted in iter2).",
+    "No functional action items — all requested flows work as specified."
+  ],
+  "critical_code_review_comments": [
+    "frontend/index.js correctly delegates to expo-router/entry; no side-effects on web; native widget module imports are gated (WidgetSync/widgets/*) so web/Expo Go silently no-op (verified: 0 widget-related console errors).",
+    "LevelUp.tsx correctly persists seen levels — reload does not re-trigger overlay for the same level.",
+    "AnimatedCat is rendered with accessibilityLabel 'Kucing yang menguap' and integrated in Focus alarm card, AmbientCard, and DemoOverlay.",
+    "Widget preview sheet (GlobalOverlay) shows the 'PRATINJAU DESAIN' badge on web with widget-style-0/1 toggles wired to setStyle — matches spec."
+  ],
+  "updated_files": [
+    "/app/test_reports/iteration_3.json",
+    "/app/test_reports/pytest/pytest_iter3.xml"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "seed_data_creation": "Ephemeral guest sessions via POST /api/auth/guest; check-ins made against today's date for the ephemeral user only.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Frontend URL: https://quranic-focus-app.preview.emergentagent.com. To reach a FRESH state (required for level-up): localStorage.clear() before reload; then intro-skip-button → guest-login-button (a second intro may appear after login on fresh accounts — skip it again). Settings is opened from Home via home-settings-button (there is no tab-settings). Blocker prayer chip testIDs are lowercase (blocker-prayer-subuh/…). Check-in testIDs are prayer-checkin-{subuh|zuhur|asar|magrib|isya}. Level-up overlay testIDs: levelup-title / levelup-share-button / levelup-continue-button / levelup-close-button. Widget preview testIDs: settings-widget-button, widget-style-0, widget-style-1.",
+  "rca_of_issue": "N/A — no bugs discovered this iteration."
+}

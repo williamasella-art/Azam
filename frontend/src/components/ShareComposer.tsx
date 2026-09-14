@@ -43,7 +43,7 @@ export function ShareComposer() {
         <ImageBackground source={TEMPLATES[template].image} style={[s.card, { width: cardWidth, height: cardHeight }]} imageStyle={{ borderRadius: 28 }} testID="share-template">
           <LinearGradient colors={gradients[tint] as any} style={s.shade} />
           <SkyLife width={cardWidth} height={cardHeight} birds={2} stars={7} />
-          <View style={s.cardTop}><Logo size={28} wordmark /><Badge text={isVerse ? 'SEAYAT' : completed ? 'SALAT TERCATAT' : `LEVEL ${(level?.name || 'PEMULA').toUpperCase()}`} gold /></View>
+          <View style={s.cardTop}><Logo size={28} wordmark /><Badge text={isVerse ? 'SEAYAT' : completed ? 'SALAT TERCATAT' : `LEVEL ${(level?.name || 'PEMULA').toUpperCase()}`} gold style={{ backgroundColor: colors.overlay }} /></View>
           {isVerse ? <View style={s.verseBox}><T arabic size={24} color={colors.heroInk} style={s.center}>{verse.teksArab}</T><T size={12} color={colors.heroMuted} style={s.center}>“{verse.teksIndonesia}”</T><Badge text={`QS. ${verse.surah} : ${verse.nomorAyat}`} gold /></View>
             : <View style={s.streakBox}>
               <LevelBadge name={completed ? 'Bintang' : level?.name || 'Awan'} size={124} locked={!completed && !level} />

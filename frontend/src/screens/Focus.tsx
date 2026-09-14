@@ -1,11 +1,12 @@
 import React from 'react';
-import { Image, ImageBackground, Switch, View } from 'react-native';
+import { ImageBackground, Switch, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
 import { IMG } from '@/src/assets';
 import { Badge, Button, Card, Icon, Page, T, Tap } from '@/src/components/ui';
 import { AmbientCard } from '@/src/components/AmbientCard';
+import { AnimatedCat } from '@/src/components/AnimatedCat';
 import { PRAYER_ICONS } from '@/src/components/SocialDemo';
 
 export const APPS: { name: string; icon: string; color: string }[] = [
@@ -39,12 +40,12 @@ export function Focus() {
       <Button testID="blocker-demo-button" title="Coba jeda salat sekarang" icon="play" onPress={() => setModal({ type: 'blocker', prayer: 'Magrib' })} />
       <T size={10} muted style={{ textAlign: 'center' }}>Pemblokiran sistem penuh hadir pada versi native. Di Expo, ini demonstrasi berlabel.</T>
     </Card>
-    <Card style={s.card}><View style={s.row}><Image source={IMG.cat} style={s.alarmArt} /><View style={{ flex: 1 }}><T size={16} weight="700">Alarm bangun dzikir</T><T size={11} muted>Ucapkan dzikir, tahan tombol untuk mematikan.</T></View></View>
+    <Card style={s.card}><View style={s.row}><View style={s.alarmArt}><AnimatedCat size={84} /></View><View style={{ flex: 1 }}><T size={16} weight="700">Alarm bangun dzikir</T><T size={11} muted>Ucapkan dzikir, tahan tombol untuk mematikan.</T></View></View>
       <Tap testID="alarm-edit-button" style={s.alarmRow} onPress={() => setModal({ type: 'alarm-settings' })}><View><T testID="alarm-time" size={40} weight="800" style={{ letterSpacing: -1.5 }}>{settings.alarm_time.replace(':', '.')}</T><T size={12} color={colors.onBrandSecondary}>“{settings.alarm_phrase}”</T></View><View style={s.editPill}><Icon name="create-outline" size={16} color={colors.onBrandSecondary} /><T size={11} weight="700" color={colors.onBrandSecondary}>Ubah</T></View></Tap>
       <Button testID="alarm-demo-button" title="Coba alarm" variant="secondary" icon="alarm-outline" onPress={() => setModal({ type: 'alarm' })} />
     </Card>
     <AmbientCard />
-    <Tap testID="focus-pro-button" style={s.proCard} onPress={() => go('pro')}><LinearGradient colors={[colors.goldSoft, colors.transparent]} style={s.shade} /><Image source={IMG.hajj} style={s.proArt} /><View style={{ flex: 1, gap: 4 }}><Badge text="AZAM PRO · PRATINJAU" gold icon="sparkles" /><T size={15} weight="700">Panduan Haji & Umroh, suara premium</T><T size={11} muted>Jelajahi fitur lanjutan tanpa pembayaran.</T></View><Icon name="arrow-forward" color={colors.goldText} /></Tap>
+    <Tap testID="focus-pro-button" style={s.proCard} onPress={() => go('pro')}><LinearGradient colors={[colors.goldSoft, colors.transparent]} style={s.shade} /><ImageBackground source={IMG.hajj} style={s.proArt} imageStyle={{ borderRadius: 20 }} /><View style={{ flex: 1, gap: 4 }}><Badge text="AZAM PRO · PRATINJAU" gold icon="sparkles" /><T size={15} weight="700">Panduan Haji & Umroh, suara premium</T><T size={11} muted>Jelajahi fitur lanjutan tanpa pembayaran.</T></View><Icon name="arrow-forward" color={colors.goldText} /></Tap>
   </Page>;
 }
 const useStyles = makeStyles(c => ({
@@ -53,6 +54,6 @@ const useStyles = makeStyles(c => ({
   minute: { flex: 1, minHeight: 64, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, minuteOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary },
   prayerChip: { flex: 1, minHeight: 66, borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, prayerOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary }, check: { position: 'absolute', top: 5, right: 5, width: 16, height: 16, borderRadius: 8, backgroundColor: c.success, alignItems: 'center', justifyContent: 'center' },
   appGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, appTile: { width: '22.5%', minHeight: 92, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, appOn: { borderColor: c.brandTertiary, backgroundColor: c.brandSecondary }, appIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, appCheck: { position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  alarmArt: { width: 56, height: 56, borderRadius: 18 }, alarmRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, editPill: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, paddingHorizontal: 14, backgroundColor: c.brandSecondary, borderRadius: 14 },
+  alarmArt: { width: 72, height: 72, borderRadius: 22, backgroundColor: c.brandSecondary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, alarmRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, editPill: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, paddingHorizontal: 14, backgroundColor: c.brandSecondary, borderRadius: 14 },
   proCard: { padding: 16, borderRadius: 24, borderWidth: 1, borderColor: c.goldSoft, backgroundColor: c.surface, flexDirection: 'row', alignItems: 'center', gap: 12, overflow: 'hidden' }, proArt: { width: 64, height: 64, borderRadius: 20 },
 }));

@@ -1,13 +1,13 @@
 import React, { useEffect } from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import { useAudioPlayer } from 'expo-audio';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
-import { IMG } from '@/src/assets';
 import { Badge, Bg, Icon, T, Tap } from './ui';
 import { HoldButton, PrayerLock, SocialFeedMock } from './SocialDemo';
+import { AnimatedCat } from './AnimatedCat';
 
 export function DemoOverlay() {
   const { modal, setModal, notify, settings, daily, snooze } = useApp(); const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets();
@@ -19,7 +19,7 @@ export function DemoOverlay() {
   if (alarm) return <Bg style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
     <View style={s.top}><Badge text="DEMONSTRASI ALARM" icon="sparkles-outline" /><Tap testID="demo-close-button" style={s.close} onPress={close}><Icon name="close" size={22} /></Tap></View>
     <Animated.View entering={FadeInDown.duration(500)} style={s.alarmBody}>
-      <Image source={IMG.cat} style={s.alarmArt} />
+      <View style={s.alarmArt}><AnimatedCat size={200} /></View>
       <T size={12} weight="700" color={colors.onBrandSecondary}>AWALI HARI DENGAN SYUKUR</T>
       <T testID="demo-title" size={32} weight="800" style={s.center}>Selamat pagi,{"\n"}hati yang baik.</T>
       <T size={56} weight="800" color={colors.brandTertiary} style={{ letterSpacing: -2 }}>{settings.alarm_time.replace(':', '.')}</T>
@@ -37,7 +37,7 @@ export function DemoOverlay() {
 }
 const useStyles = makeStyles(c => ({
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 22 }, close: { height: 44, width: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: c.glass },
-  alarmBody: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 26 }, alarmArt: { width: 180, height: 180, borderRadius: 60, marginBottom: 8 }, center: { textAlign: 'center' },
+  alarmBody: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 26 }, alarmArt: { width: 220, height: 220, borderRadius: 72, marginBottom: 8, backgroundColor: c.brandSecondary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, center: { textAlign: 'center' },
   phrase: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 18, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border },
   bottom: { gap: 12, padding: 22 },
 }));

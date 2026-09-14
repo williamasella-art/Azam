@@ -147,6 +147,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, settings, prayers.data, day, localMinute]);
   const daily = useQuery({ queryKey: ['daily', day], queryFn: () => api(`/quran/daily?day=${day}`).then(r => r.data), enabled: !!user, staleTime: 3600000 });
+  // Celebrate newly unlocked levels once, per account.
+  useEffect(() => {
+    const levels = progress.data?.levels; if (!user || !levels) return;
+    const key = `levels-seen:${user.user_id}`; const unlocked = levels.filter((l: any) => l.unlocked).map((l: any) => l.name);
+    (async () => {
+      const seen = (await storage.getItem<any>(key, null)) as string[] | null;
+      if (seen === null) { await storage.setItem(key, unlocked); return; }
+      const fresh = unlocked.filter((name: string) => !seen.includes(name));
+      if (fresh.length) { await storage.setItem(key, unlocked); setModal({ type: 'levelup', level: fresh[fresh.length - 1] }); }
+    })();
+  }, [user, progress.data]);
   const [checking, setChecking] = useState(false);
   const checkin = async (name: string, date = day) => {
     if (checking) return;
