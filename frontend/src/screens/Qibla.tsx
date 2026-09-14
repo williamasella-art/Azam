@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import Slider from '@react-native-community/slider';
 import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
 import { useQuery } from '@tanstack/react-query';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useApp } from '@/src/AppContext';
 import { api } from '@/src/api';
 import { makeStyles, useTheme } from '@/src/theme';
@@ -15,8 +15,8 @@ import { Badge, Button, Card, Icon, Page, Status, T, Tap } from '@/src/component
 
 /** Unwraps a compass heading so the animation always takes the shortest path. */
 function unwrap(previous: number, next: number) { let delta = ((next - previous + 540) % 360) - 180; if (delta < -180) delta += 360; return previous + delta; }
-// Critically damped spring: glides to the new heading without jitter or overshoot.
-const GLIDE = { damping: 28, stiffness: 110, mass: 1, overshootClamping: true, restDisplacementThreshold: 0.05, restSpeedThreshold: 0.05 };
+// Real-time follow: a very short linear tween keeps the dial glued to the sensor without visible lag.
+const FOLLOW = { duration: 60, easing: Easing.linear };
 
 export function Qibla() {
   const { settings, setModal } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { width } = useWindowDimensions();
@@ -28,8 +28,8 @@ export function Qibla() {
   const current = sensor ? heading : simulated;
   useEffect(() => {
     const target = unwrap(last.current, current); last.current = target;
-    dial.value = withSpring(-target, GLIDE);
-    needle.value = withSpring(bearing - target, GLIDE);
+    dial.value = withTiming(-target, FOLLOW);
+    needle.value = withTiming(bearing - target, FOLLOW);
   }, [current, bearing, dial, needle]);
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null; let cancelled = false;
@@ -40,11 +40,11 @@ export function Qibla() {
       const sub = await Location.watchHeadingAsync(value => {
         if (cancelled) return;
         const raw = value.trueHeading >= 0 ? value.trueHeading : value.magHeading;
-        // Low-pass filter on the shortest arc: removes sensor noise while staying responsive.
+        // Light smoothing only (70% of each new reading) so the compass reacts instantly yet stays free of jitter.
         const previous = smoothed.current ?? raw;
-        const next = (unwrap(previous, raw) - previous) * 0.3 + previous;
+        const next = (unwrap(previous, raw) - previous) * 0.7 + previous;
         smoothed.current = ((next % 360) + 360) % 360;
-        if (Math.abs(unwrap(previous, raw) - previous) > 0.25 || smoothed.current !== previous) setHeading(smoothed.current);
+        setHeading(smoothed.current);
         setAccuracy(value.accuracy);
       });
       if (cancelled) sub.remove(); else subscription = sub;

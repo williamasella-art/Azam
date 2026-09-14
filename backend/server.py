@@ -57,6 +57,12 @@ class Exchange(BaseModel):
     session_id: str = Field(min_length=1, max_length=2048)
 
 
+class CustomApp(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    category: Literal['Sosmed', 'Game', 'Video', 'Belanja', 'Lainnya'] = 'Lainnya'
+    package: str = Field(default='', max_length=120)
+
+
 class Settings(BaseModel):
     city: str = Field(default='Jakarta', min_length=1, max_length=80)
     latitude: float = Field(default=-6.2088, ge=-90, le=90)
@@ -72,8 +78,10 @@ class Settings(BaseModel):
     blocked_prayers: list[Literal['Subuh', 'Zuhur', 'Asar', 'Magrib', 'Isya']] = Field(default_factory=lambda: ['Subuh', 'Zuhur', 'Asar', 'Magrib', 'Isya'])
     alarm_enabled: bool = False
     alarm_time: str = Field(default='04:30', pattern=r'^([01]\d|2[0-3]):[0-5]\d$')
-    alarm_phrase: Literal['Alhamdulillah', 'Masya Allah', 'Ya Rahman, Ya Rahim'] = 'Alhamdulillah'
+    alarm_phrase: str = Field(default='Alhamdulillah', min_length=1, max_length=80)
     translation: bool = True
+    latin: bool = True
+    custom_apps: list[CustomApp] = Field(default_factory=list, max_length=60)
     gender: Literal['', 'pria', 'wanita'] = ''
     reminder_minutes: Literal[5, 10, 15, 30] = 10
     ambient: Literal['none', 'rain', 'cat'] = 'none'

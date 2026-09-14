@@ -24,8 +24,8 @@ export function Tap({ children, onPress, style, testID, disabled, haptic = true,
   const press = () => { if (haptic && Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); onPress?.(); };
   const anim = useAnimatedStyle(() => ({ opacity: disabled ? 0.45 : dim.value, transform: [{ scale: scale.value }] }));
   return <AnimatedPressable accessibilityRole="button" testID={testID} onPress={press} disabled={disabled} {...rest}
-    onPressIn={() => { scale.value = withSpring(0.94, { damping: 14, stiffness: 320 }); dim.value = withTiming(0.86, { duration: 90 }); }}
-    onPressOut={() => { scale.value = withSpring(1, { damping: 12, stiffness: 260 }); dim.value = withTiming(1, { duration: 160 }); }}
+    onPressIn={() => { scale.value = withSpring(0.985, { damping: 20, stiffness: 400 }); dim.value = withTiming(0.92, { duration: 70 }); }}
+    onPressOut={() => { scale.value = withSpring(1, { damping: 18, stiffness: 320 }); dim.value = withTiming(1, { duration: 120 }); }}
     style={[style, anim]}>{children}</AnimatedPressable>;
 }
 /** Interactive gradient button. variant: primary (sky gradient) | secondary (glass) | gold | paper | danger */
@@ -56,11 +56,11 @@ export function Bg({ children, style }: { children: React.ReactNode; style?: Sty
   const { colors } = useTheme();
   return <LinearGradient colors={[colors.pageTop, colors.pageBottom]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={[{ flex: 1 }, style]}>{children}</LinearGradient>;
 }
-export function Logo({ size = 40, wordmark, light }: { size?: number; wordmark?: boolean; light?: boolean }) {
+export function Logo({ size = 40, wordmark, light, color }: { size?: number; wordmark?: boolean; light?: boolean; color?: string }) {
   const { colors } = useTheme();
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
     <Image source={IMG.logo} style={{ width: size, height: size, borderRadius: size * 0.28 }} accessibilityLabel="Logo Azam" />
-    {wordmark && <T size={size * 0.6} weight="800" color={light ? colors.onPaper : colors.onSurface} style={{ letterSpacing: -0.5 }}>Azam</T>}
+    {wordmark && <T size={size * 0.6} weight="800" color={color || (light ? colors.onPaper : colors.onSurface)} style={{ letterSpacing: -0.5 }}>Azam</T>}
   </View>;
 }
 export function Page({ children, title, subtitle, back, right, scroll = true, testID }: any) {
@@ -68,8 +68,9 @@ export function Page({ children, title, subtitle, back, right, scroll = true, te
   return <Bg><View style={s.header}>
     {back && <Tap testID="header-back-button" onPress={() => go(back)} style={s.iconButton}><Icon name="arrow-back" /></Tap>}
     <View style={s.headerText}><T size={22} weight="800" testID="screen-title">{title}</T>{subtitle && <T muted size={12}>{subtitle}</T>}</View>{right}
+    {!back && <Tap testID="header-settings-button" onPress={() => go('settings')} style={s.iconButton} accessibilityLabel="Pengaturan"><Icon name="settings-outline" size={20} /></Tap>}
   </View>{scroll ? <ScrollView testID={testID} showsVerticalScrollIndicator={false} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-    <Animated.View entering={FadeInDown.duration(350).springify()} style={s.body}>{children}</Animated.View>
+    <Animated.View entering={FadeInDown.duration(300)} style={s.body}>{children}</Animated.View>
   </ScrollView> : <View style={{ flex: 1 }}>{children}</View>}</Bg>;
 }
 export function Status({ loading, error, retry, message = 'Memuat sebentar…' }: any) {
@@ -77,9 +78,10 @@ export function Status({ loading, error, retry, message = 'Memuat sebentar…' }
   return <View testID={loading ? 'loading-state' : 'error-state'} style={s.status}>{loading ? <ActivityIndicator color={colors.brandPrimary} /> : <Icon name="cloud-offline-outline" size={30} color={colors.muted} />}
     <T muted style={{ textAlign: 'center' }}>{loading ? message : error?.message || 'Belum dapat memuat data.'}</T>{retry && !loading && <Button title="Coba lagi" testID="retry-button" onPress={retry} variant="secondary" />}</View>;
 }
-export function Badge({ text, icon, gold = false, style }: any) {
-  const s = useStyles(); const { colors } = useTheme(); const color = gold ? colors.goldText : colors.onBrandSecondary;
-  return <View style={[s.badge, gold && { backgroundColor: colors.goldSoft }, style]}>{icon && <Icon name={icon} size={12} color={color} />}<T size={10} weight="800" color={color} style={{ letterSpacing: 0.6 }}>{text}</T></View>;
+/** `light`: badge sits on a dark photo/overlay — translucent dark pill with light (or gold) text. */
+export function Badge({ text, icon, gold = false, light = false, style }: any) {
+  const s = useStyles(); const { colors } = useTheme(); const color = light ? (gold ? colors.gold : colors.heroInk) : gold ? colors.goldText : colors.onBrandSecondary;
+  return <View style={[s.badge, gold && { backgroundColor: colors.goldSoft }, light && { backgroundColor: colors.overlay }, style]}>{icon && <Icon name={icon} size={12} color={color} />}<T size={10} weight="800" color={color} style={{ letterSpacing: 0.6 }}>{text}</T></View>;
 }
 export function IconBox({ name, size = 44, color, bg, icon = 20 }: any) {
   const { colors } = useTheme();

@@ -48,7 +48,7 @@ def register_routes(router, db, http, current_user, Data, get_settings):
 
     @router.get('/quran/daily', response_model=Data)
     async def daily(day: date = Query()):
-        choices = [(94, 5), (93, 5), (2, 152), (13, 28), (94, 6), (2, 153), (20, 14)]
+        choices = [(94, 5), (93, 5), (2, 152), (13, 28), (94, 6), (2, 153), (20, 14), (65, 3), (39, 53), (2, 186), (29, 69), (3, 139), (12, 87), (2, 286), (57, 4), (50, 16), (73, 8), (17, 78), (11, 114), (62, 10), (2, 45), (103, 3), (8, 2), (33, 41)]
         surah, verse = choices[day.toordinal() % len(choices)]
         data = await cached(f'quran-{surah}', f'https://equran.id/api/v2/surat/{surah}')
         item = next(item for item in data['ayat'] if item['nomorAyat'] == verse)

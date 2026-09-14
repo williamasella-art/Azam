@@ -88,7 +88,7 @@ export function Intro() {
 const useStyles = makeStyles(c => ({
   page: { flexGrow: 1, paddingHorizontal: 22, gap: 14 }, topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, skip: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' },
   dots: { flexDirection: 'row', gap: 6 }, dot: { flex: 1, height: 5, borderRadius: 3, backgroundColor: c.glass }, dotActive: { backgroundColor: c.brandTertiary }, dotDone: { backgroundColor: c.brandSecondary },
-  body: { gap: 14, flexGrow: 1 }, hero: { width: '100%', aspectRatio: 1.6, borderRadius: 28 }, title: { letterSpacing: -0.8 }, text: { lineHeight: 22 }, center: { textAlign: 'center' },
+  body: { gap: 14, flexGrow: 1 }, hero: { width: '100%', height: 168, borderRadius: 24, resizeMode: 'cover' }, title: { letterSpacing: -0.8 }, text: { lineHeight: 22 }, center: { textAlign: 'center' },
   feedback: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, chip: { minHeight: 40, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 14, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, chipOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary },
   minuteChip: { flex: 1, minHeight: 74, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.glass, borderWidth: 1, borderColor: c.border },

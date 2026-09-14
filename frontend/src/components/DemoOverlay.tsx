@@ -32,7 +32,7 @@ export function DemoOverlay() {
     <View style={{ flex: 1, paddingTop: insets.top }}><SocialFeedMock /></View>
     <PrayerLock prayer={modal.prayer || 'Magrib'} minutes={settings.reminder_minutes ?? 10} onDone={done} onSnooze={snooze} pro={modal.pro} verse={daily.data}
       footer={<View style={{ gap: 6, alignItems: 'center' }}><Tap testID="demo-close-button" onPress={close} style={{ minHeight: 40, justifyContent: 'center' }}><T size={12} weight="700" color={colors.heroMuted}>Lewati darurat</T></Tap><T size={10} color={colors.muted} style={s.center}>Demonstrasi di dalam Azam · aplikasi lain belum diblokir.</T></View>} />
-    <View style={{ height: insets.bottom, backgroundColor: colors.pageTop }} />
+    <View style={{ height: insets.bottom, backgroundColor: colors.heroShade }} />
   </View>;
 }
 const useStyles = makeStyles(c => ({

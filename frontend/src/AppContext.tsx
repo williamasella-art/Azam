@@ -170,7 +170,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       else notify('Catatan salat dibatalkan.');
     } catch (e: any) { notify(e.message); } finally { setChecking(false); }
   };
-  const go = (next: ScreenName) => { setScreen(next); };
+  const [lastTab, setLastTab] = useState<ScreenName>('home');
+  const go = (next: ScreenName) => { if (['home', 'qibla', 'focus', 'quran', 'progress'].includes(screen)) setLastTab(screen); setScreen(next); };
   const read = (number: number) => { setSurah(number); go('reader'); };
   const snooze = () => {
     if (snoozeTimer.current) clearTimeout(snoozeTimer.current);
@@ -178,7 +179,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     notify('Pengingat demonstrasi muncul dalam 5 menit selama sesi Azam tetap terbuka.');
     snoozeTimer.current = setTimeout(() => setModal({ type: 'blocker' }), 5 * 60 * 1000);
   };
-  return <Context.Provider value={{ user, loading, authError, guest, google, logout, settings, updateSettings, screen, go, surah, read, introDone, showIntro, setShowIntro, finishIntro,
+  return <Context.Provider value={{ user, loading, authError, guest, google, logout, settings, updateSettings, screen, go, lastTab, surah, read, introDone, showIntro, setShowIntro, finishIntro,
     toast, notify, modal, setModal, now, day, month, setMonth, progress, prayers, tomorrowPrayers, daily, checkin, checking, snooze }}>{children}</Context.Provider>;
 }
 export const useApp = () => useContext(Context);

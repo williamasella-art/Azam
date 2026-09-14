@@ -30,7 +30,7 @@ export function Loading() {
 }
 const useStyles = makeStyles(c => ({
   welcome: { flexGrow: 1, paddingHorizontal: 24, gap: 22 }, brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  art: { height: 300, borderRadius: 32, overflow: 'hidden' }, artImage: { width: '100%', height: '100%' }, artLabel: { position: 'absolute', bottom: 16, alignSelf: 'center', backgroundColor: c.overlay, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  art: { height: 190, borderRadius: 28, overflow: 'hidden' }, artImage: { width: '100%', height: '100%' }, artLabel: { position: 'absolute', bottom: 16, alignSelf: 'center', backgroundColor: c.overlay, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6 },
   copy: { gap: 12 }, title: { textAlign: 'center', lineHeight: 42, letterSpacing: -1.2 }, description: { textAlign: 'center', lineHeight: 22 },
   features: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 6 }, feature: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   actions: { gap: 12, marginTop: 'auto' }, center: { textAlign: 'center' }, link: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', minHeight: 44 },

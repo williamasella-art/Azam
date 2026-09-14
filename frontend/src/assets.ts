@@ -15,10 +15,10 @@ export const IMG = {
   timer: require('../assets/images/gen/onboard_timer.jpg'),
 };
 export const BADGES: Record<string, any> = {
-  Awan: require('../assets/images/gen/badge_awan.jpg'),
-  Bintang: require('../assets/images/gen/badge_bintang.jpg'),
-  Purnama: require('../assets/images/gen/badge_purnama.jpg'),
-  Syams: require('../assets/images/gen/badge_syams.jpg'),
+  Awan: require('../assets/images/gen/badge-awan.png'),
+  Bintang: require('../assets/images/gen/badge-bintang.png'),
+  Purnama: require('../assets/images/gen/badge-purnama.png'),
+  Syams: require('../assets/images/gen/badge-syams.png'),
 };
 export const LEVEL_COPY: Record<string, string> = {
   Awan: 'Langkah pertama yang berarti. Satu hari penuh lima waktu.',

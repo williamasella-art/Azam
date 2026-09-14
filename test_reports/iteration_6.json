@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 6 full pass. Backend: pytest test_api_core.py = 15/15 PASSED (unchanged); new test_iter6_new_features.py = 8/8 PASSED covering (a) PUT /api/settings accepts alarm_phrase free text 'Ya Latif, Ya Karim' + rejects >80 chars, (b) custom_apps [{name,category,package}] accepted for all five categories Sosmed/Game/Video/Belanja/Lainnya + latin:false persists, (c) invalid category 'Musik' rejected with 422, (d) GET /api/quran/daily?day=2026-09-14 returns teksLatin (\"Wa lasaufa yu'ṭīka rabbuka fa tarḍā.\") and rotates across 8 sampled days (≥3 distinct verses, deterministic per day). Frontend on 390x844 fresh guest login: (1) THEME — light theme on Home (near-white with dark text, hero card readable, home-pro-banner + home-settings-button visible top-right, daily-latin-text visible with italic transliteration between Arabic and translation). Dark mode toggle via settings-dark-theme-switch renders readable navy background with white text (Settings screen screenshot confirmed). (2) SETTINGS GEAR — header-settings-button present on tab-qibla, tab-focus, tab-quran, tab-progress. From Progress → gear → Settings opens; header-back-button returns to Progress (progress-share-button present). (3) QURAN READER — tab-quran → surah-1-button → verse-1-latin='Bismillāhir-raḥmānir-raḥīm(i).' visible; reader-latin-switch hides verse-1-latin (verified DOM absence), toggling back restores; reader-translation-switch present; reader-ambient-button opens 'Suasana tenang' sheet with ambient-card containing 'RAMAH ADHD' pill, ambient-rain-slider, ambient-cat-slider, ambient-rain-toggle, ambient-pro-thunder (locked chip), ambient-rain-volume shows '50%'. modal-close-button dismisses. (4) FOCUS (AppBlocker) — focus-ambient-button, alarm-edit-button, add-app-button present; add-app-installed-button correctly ABSENT on web (Android-only). add-app-button opens sheet with add-app-name-input + all 5 category chips (sosmed/game/video/belanja/lainnya); empty submit → add-app-error shown; typing 'WhatsApp' + selecting 'game' → save creates custom-app-whatsapp tile with custom-app-remove-whatsapp; duplicate add shows error 'Aplikasi ini sudah ada di daftar.'; remove wipes the tile. (5) ALARM — alarm-edit-button opens sheet with alarm-hour-wheel + alarm-minute-wheel (no time text/input fields present in DOM). Tapping alarm-hour-wheel-6 + alarm-minute-wheel-15 sets alarm-time-preview='Bangun pukul 06.15'; alarm-phrase-3 (Subhanallah) chip selects; alarm-phrase-input accepts 'Ya Latif, Ya Karim'; alarm-save-button persists — Focus alarm-time reads '06.15'; reopening the sheet shows preview 'Bangun pukul 06.15' with wheel highlights on 06/15 and alarm-phrase-input prefilled with 'Ya Latif, Ya Karim'. (6) SHARE COMPOSER — progress-share-button opens composer; share-date shows 'Senin, 14 September 2026 · 3 Rabīʿ al-thānī 1448 H'; share-daily-verse strip renders and share-verse-switch hides/shows it; share-caption-shuffle present and clickable (see minor note below); share-photo-camera aria-disabled=true / pointer-events=none / opacity=0.45 on web; share-photo-gallery present; share-confirm-button web fallback executes without crash or navigation. (7) BADGES — Progress page renders level-badge-awan; progress-achievements-button present and reachable. (8) PRO — home-pro-banner opens Pro screen with pro-hero + pro-plan-monthly + pro-plan-yearly + pro-preview-button (label toggles 'Coba pratinjau Pro gratis' → 'Pratinjau Pro aktif ✓') + pro-feature-0..pro-feature-5 all present. pro-feature-0 opens 'Haji & Umroh' guide with Talbiyah + Rukun Umroh list. Tapping monthly/yearly plans shows toast (no crash). (9) CONSOLE — 0 React errors, no red screen; only benign pre-existing RN-web deprecation warnings (shadow*, pointerEvents, Image.resizeMode) — unchanged since iter2.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      { "component": "Style props (shadow*/pointerEvents)", "issue": "Pre-existing benign RN-web deprecation warnings for `shadow*`, `props.pointerEvents`, and `Image style.resizeMode` — carried over from iter2. Not blocking, but consider migrating to boxShadow / style.pointerEvents / props.resizeMode when convenient." }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_api_core.py",
+    "/app/backend/tests/test_iter6_new_features.py",
+    "/app/test_reports/pytest/pytest_iter6.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Add data-testid=\"share-caption-text\" to the caption line inside ShareComposer.tsx so future automation can programmatically verify share-caption-shuffle actually rotates the caption string (currently only the shuffle button is queryable; visual behavior looks fine but is not asserted). Non-blocking."
+  ],
+  "critical_code_review_comments": [
+    "Backend now correctly validates custom_apps[].category via enum whitelist (Sosmed/Game/Video/Belanja/Lainnya) returning 422 for invalid values, and enforces alarm_phrase ≤80 chars — verified end-to-end via test_settings_custom_apps_invalid_category_rejected and test_settings_alarm_phrase_max_80_chars.",
+    "/api/quran/daily is deterministic per `day` param and rotates across the 24-verse pool (≥3 distinct verses across 8 sampled 2026 days); teksLatin field is populated on every response so Home + Quran surfaces can render transliteration without a client-side lookup table.",
+    "add-app-installed-button (Android installed picker) is correctly gated off on web — DOM absent both on Focus screen and inside the add-app sheet, matching Platform.OS !== 'android' guard.",
+    "Alarm sheet uses wheel-only input (no <input type='time'> or free text field for time) — matches spec; hour/minute wheels are individually testable via alarm-hour-wheel-{N} / alarm-minute-wheel-{N}; state round-trips (reopen shows highlighted 06/15 + prefilled phrase).",
+    "share-photo-camera on web has aria-disabled='true', pointer-events='none', opacity=0.45 — proper accessible disabled state (not just visual).",
+    "Pro preview toggle updates its own label ('Coba pratinjau Pro gratis' ⇄ 'Pratinjau Pro aktif ✓') as a single source of truth — no drift between button text and pratinjau state."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter6_new_features.py",
+    "/app/test_reports/iteration_6.json",
+    "/app/test_reports/pytest/pytest_iter6.xml"
+  ],
+  "success_rate": { "backend": "100% (23/23)", "frontend": "100%" },
+  "seed_data_creation": "Ephemeral guest sessions via POST /api/auth/guest. Frontend flow created & removed one custom app tile (WhatsApp), set alarm 06:15 with phrase 'Ya Latif, Ya Karim', enabled pro-preview — all scoped to per-guest session, no shared/seed data touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Frontend URL https://quranic-focus-2.preview.emergentagent.com (viewport 390x844). Backend base = same origin, /api prefix. Fresh state: localStorage.clear() → reload → intro-skip-button (up to 2x) → guest-login-button → possibly one more intro-skip-button. Native-only surfaces skipped: qibla real-time compass (requires DeviceMotion), Android installed-app picker (add-app-installed-button hidden on web), share-photo-camera (disabled on web via aria/pointer-events). Iter6 added backend tests /app/backend/tests/test_iter6_new_features.py for alarm_phrase free-text, custom_apps validation, and quran daily teksLatin+rotation; keep it in the regression set. Only known gap: share-caption-text has no testID so caption-shuffle rotation is not programmatically asserted (button itself is present and click succeeds).",
+  "rca_of_issue": "N/A — no bugs discovered. Every checklist item in the review request passes; only cosmetic follow-up is adding data-testid=\"share-caption-text\" for future automation coverage."
+}

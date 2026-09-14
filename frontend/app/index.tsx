@@ -27,11 +27,11 @@ const TABS: { key: ScreenName; label: string; icon: string; selected: string }[]
   { key: 'progress', label: 'Progres', icon: 'flame-outline', selected: 'flame' },
 ];
 export default function Index() {
-  const { user, loading, settings, screen, go, modal, introDone, showIntro } = useApp(); const { colors } = useTheme(); const s = useStyles();
+  const { user, loading, settings, screen, go, modal, introDone, showIntro } = useApp(); const { colors, scheme } = useTheme(); const s = useStyles();
   const tabScreen = TABS.some(tab => tab.key === screen);
   const screens: Record<ScreenName, React.ReactNode> = { home: <Home />, quran: <Quran />, focus: <Focus />, progress: <Progress />, reader: <Reader />, qibla: <Qibla />, achievements: <Achievements />, settings: <Settings />, pro: <Pro />, hajj: <Hajj /> };
   const needsIntro = showIntro || (!user && introDone === false) || (!!user && settings && !settings.onboarded);
-  return <View style={s.root}><StatusBar style="light" />
+  return <View style={s.root}><StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     <SafeAreaView style={s.frame} edges={user && !needsIntro ? ['top', 'bottom'] : []}>
       {loading || introDone === null ? <Loading /> : needsIntro ? <Intro /> : !user ? <Welcome /> : <>
         <View style={s.content}>{screens[screen as ScreenName]}</View>
@@ -51,6 +51,6 @@ export default function Index() {
 const useStyles = makeStyles(c => ({
   root: { flex: 1, backgroundColor: c.pageTop }, frame: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: c.pageTop }, content: { flex: 1 },
   navWrap: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, backgroundColor: c.pageBottom },
-  nav: { flexDirection: 'row', justifyContent: 'space-between', borderRadius: 26, padding: 6, backgroundColor: c.surfaceSecondary, borderWidth: 1, borderColor: c.border, gap: 2, shadowColor: c.black, shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
+  nav: { flexDirection: 'row', justifyContent: 'space-between', borderRadius: 26, padding: 6, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, gap: 2, shadowColor: c.black, shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
   tab: { flex: 1, minHeight: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 4, overflow: 'hidden' }, tabActiveBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, tabGradient: { flex: 1, borderRadius: 20 },
 }));

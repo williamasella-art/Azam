@@ -7,7 +7,7 @@ import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
 import { LEVEL_COPY } from '@/src/assets';
 import { Badge, Bg, Button, Icon, T, Tap } from './ui';
-import { LevelBadge } from '@/src/screens/Progress';
+import { LevelBadge } from './LevelBadge';
 import { SkyLife } from './SkyLife';
 
 const PALETTE_KEYS = ['gold', 'brandTertiary', 'white', 'goldText', 'brandPrimary', 'success'] as const;
@@ -53,8 +53,8 @@ export function LevelUpOverlay() {
       </View>
       <Animated.View entering={FadeInDown.delay(350).duration(500)} style={{ alignItems: 'center', gap: 8 }}>
         <T size={13} weight="700" color={colors.goldText} style={{ letterSpacing: 1.2 }}>MASYA ALLAH</T>
-        <T testID="levelup-title" size={38} weight="800" color={colors.heroInk} style={{ letterSpacing: -1.2, textAlign: 'center' }}>Level {level}</T>
-        <T size={14} color={colors.heroMuted} style={{ textAlign: 'center', lineHeight: 22, paddingHorizontal: 12 }}>{LEVEL_COPY[level]}</T>
+        <T testID="levelup-title" size={38} weight="800" style={{ letterSpacing: -1.2, textAlign: 'center' }}>Level {level}</T>
+        <T size={14} muted style={{ textAlign: 'center', lineHeight: 22, paddingHorizontal: 12 }}>{LEVEL_COPY[level]}</T>
         {nextLevel && <View style={s.nextPill}><Icon name="arrow-up-circle-outline" size={14} color={colors.onBrandSecondary} /><T size={11} weight="700" color={colors.onBrandSecondary}>Berikutnya: {nextLevel.name} · {nextLevel.days} hari berturut</T></View>}
       </Animated.View>
     </View>

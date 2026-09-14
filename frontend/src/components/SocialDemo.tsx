@@ -45,7 +45,7 @@ export function PrayerLock({ prayer = 'Magrib', minutes = 10, onDone, onSnooze, 
   useEffect(() => { bar.value = withTiming(1, { duration: 12000, easing: Easing.linear }); }, [bar]);
   const fill = useAnimatedStyle(() => ({ width: `${8 + bar.value * 80}%` }));
   return <Animated.View entering={FadeIn.duration(450)} style={s.lock}>
-    <LinearGradient colors={[colors.overlay, colors.pageTop]} style={s.lockBg} />
+    <LinearGradient colors={[colors.overlay, colors.heroShade]} style={s.lockBg} />
     <View style={s.lockContent}>
       <Logo size={30} wordmark />
       <View style={{ alignItems: 'center', gap: 8, marginTop: 28 }}>

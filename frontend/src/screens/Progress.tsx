@@ -1,19 +1,14 @@
 import React, { useState } from 'react';
-import { FlatList, Image, ImageBackground, View, useWindowDimensions } from 'react-native';
+import { FlatList, ImageBackground, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
-import { BADGES, IMG, LEVEL_COPY } from '@/src/assets';
+import { IMG, LEVEL_COPY } from '@/src/assets';
 import { Badge, Button, Card, Icon, Page, Paper, Section, Status, T, Tap } from '@/src/components/ui';
 import { PulseFlame } from '@/src/components/SkyLife';
+import { LevelBadge } from '@/src/components/LevelBadge';
+export { LevelBadge };
 
-export function LevelBadge({ name, size = 96, locked = false, style }: { name: string; size?: number; locked?: boolean; style?: any }) {
-  const { colors } = useTheme();
-  return <View style={[{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', backgroundColor: colors.surfaceSecondary }, style]}>
-    <Image source={BADGES[name]} style={{ width: size, height: size, opacity: locked ? 0.35 : 1 }} accessibilityLabel={`Lencana ${name}`} />
-    {locked && <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}><Icon name="lock-closed" size={size * 0.3} color={colors.onSurfaceTertiary} /></View>}
-  </View>;
-}
 export function AchievementSlides({ levels, best }: { levels: any[]; best: number }) {
   const s = useStyles(); const { colors } = useTheme(); const { width } = useWindowDimensions(); const [index, setIndex] = useState(0); const { setModal } = useApp();
   const cardWidth = Math.min(width, 560) - 44;
@@ -23,7 +18,7 @@ export function AchievementSlides({ levels, best }: { levels: any[]; best: numbe
       renderItem={({ item }) => <ImageBackground source={IMG.shareBg} style={[s.slide, { width: cardWidth }]} imageStyle={{ borderRadius: 26 }} testID={`achievement-${item.name.toLowerCase()}`}>
         <LinearGradient colors={[colors.transparent, colors.overlay]} style={s.slideShade} />
         <LevelBadge name={item.name} size={120} locked={!item.unlocked} />
-        <View style={{ alignItems: 'center', gap: 4 }}><Badge text={item.unlocked ? 'TERCAPAI ✓' : `${item.days} HARI BERTURUT`} gold={item.unlocked} /><T size={24} weight="800" color={colors.heroInk}>{item.name}</T><T size={12} color={colors.heroMuted} style={{ textAlign: 'center' }}>{LEVEL_COPY[item.name]}</T></View>
+        <View style={{ alignItems: 'center', gap: 4 }}><Badge text={item.unlocked ? 'TERCAPAI ✓' : `${item.days} HARI BERTURUT`} gold={item.unlocked} light /><T size={24} weight="800" color={colors.heroInk}>{item.name}</T><T size={12} color={colors.heroMuted} style={{ textAlign: 'center' }}>{LEVEL_COPY[item.name]}</T></View>
         <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, best / item.days * 100)}%` }]} /></View>
         <T size={10} color={colors.heroMuted}>{Math.min(best, item.days)} / {item.days} hari</T>
         {item.unlocked && <Button size="sm" testID={`achievement-share-${item.name.toLowerCase()}`} title="Bagikan lencana" icon="share-social" variant="gold" onPress={() => setModal({ type: 'share-badge', level: item })} />}
