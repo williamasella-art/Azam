@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useTheme } from '@/src/theme';
-import { BADGES } from '@/src/assets';
 import { Icon } from './ui';
+import { BadgeArt } from './BadgeArt';
 
 /**
  * Achievement badge with a signature motion per level:
@@ -30,8 +30,8 @@ export function LevelBadge({ name, size = 96, locked = false, style, animate = t
   const halo = name === 'Awan' ? colors.brandTertiary : name === 'Bintang' ? colors.white : colors.gold;
   return <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]} testID={`level-badge-${name.toLowerCase()}`}>
     <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: size * 0.92, height: size * 0.92, borderRadius: size * 0.46, backgroundColor: halo }, haloStyle]} />
-    <Animated.View style={[{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', backgroundColor: colors.surfaceTertiary }, imageStyle]}>
-      <Image source={BADGES[name]} style={{ width: size, height: size, opacity: locked ? 0.35 : 1 }} accessibilityLabel={`Lencana ${name}`} />
+    <Animated.View style={[{ width: size, height: size }, imageStyle]} accessibilityLabel={`Lencana ${name}`}>
+      <BadgeArt name={name} size={size} locked={locked} />
     </Animated.View>
     {(name === 'Bintang' || name === 'Syams') && <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: size * 0.06, right: size * 0.08 }, sparkleStyle]}><Icon name="sparkles" size={Math.max(12, size * 0.16)} color={name === 'Syams' ? colors.gold : colors.white} /></Animated.View>}
     {locked && <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}><Icon name="lock-closed" size={size * 0.3} color={colors.onSurfaceTertiary} /></View>}

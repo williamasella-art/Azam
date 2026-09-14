@@ -27,7 +27,7 @@ export function Quran() {
 }
 
 function ReaderContent({ data }: { data: any }) {
-  const { settings, updateSettings, surah, notify, setModal } = useApp(); const { active } = useAmbient(); const s = useStyles(); const { colors } = useTheme();
+  const { settings, updateSettings, surah, notify, setModal } = useApp(); const { active } = useAmbient(); const playing: string[] = active; const s = useStyles(); const { colors } = useTheme();
   const listRef = useRef<FlatList>(null);
   const pendingScroll = useRef<number | null>(settings.last_surah === surah && settings.last_verse > 1 ? Math.min(settings.last_verse, data.ayat.length) - 1 : null);
   const audioUrl = data.audioFull?.['05'] || Object.values(data.audioFull || {})[0];
@@ -38,7 +38,7 @@ function ReaderContent({ data }: { data: any }) {
     <View style={s.readerControls}><View style={s.switchLabel}><T size={11} muted>Terjemahan</T><Switch testID="reader-translation-switch" value={settings.translation} onValueChange={(value) => updateSettings({ translation: value })} trackColor={{ false: colors.borderStrong, true: colors.brandPrimary }} thumbColor={colors.white} /></View>
       <View style={s.switchLabel}><T size={11} muted>Latin</T><Switch testID="reader-latin-switch" value={settings.latin} onValueChange={(value) => updateSettings({ latin: value })} trackColor={{ false: colors.borderStrong, true: colors.brandPrimary }} thumbColor={colors.white} /></View>
       <View style={{ flex: 1 }} />
-      <Tap testID="reader-ambient-button" style={[s.audioButton, active !== 'none' && s.audioActive]} onPress={() => setModal({ type: 'ambient' })} accessibilityLabel="Suasana tenang & volume"><Icon name={active === 'cat' ? 'paw-outline' : 'rainy-outline'} size={18} color={active !== 'none' ? colors.onBrandPrimary : colors.onSurfaceTertiary} /><Icon name="options-outline" size={14} color={active !== 'none' ? colors.onBrandPrimary : colors.onSurfaceTertiary} /></Tap>
+      <Tap testID="reader-ambient-button" style={[s.audioButton, playing.length > 0 && s.audioActive]} onPress={() => setModal({ type: 'ambient' })} accessibilityLabel="Suasana tenang & volume"><Icon name={playing.includes('cat') && !playing.includes('rain') ? 'paw-outline' : 'rainy-outline'} size={18} color={playing.length > 0 ? colors.onBrandPrimary : colors.onSurfaceTertiary} /><Icon name="options-outline" size={14} color={playing.length > 0 ? colors.onBrandPrimary : colors.onSurfaceTertiary} /></Tap>
       <Tap testID="reader-audio-button" style={[s.audioButton, s.playButton]} onPress={play}><Icon name={recitationStatus.playing ? 'pause' : 'play'} size={18} color={colors.onBrandPrimary} /><T size={11} weight="700" color={colors.onBrandPrimary}>{recitationStatus.playing ? 'Jeda' : 'Murotal'}</T></Tap>
     </View>
     <FlatList ref={listRef} testID="reader-verse-list" data={data.ayat} keyExtractor={item => String(item.nomorAyat)} showsVerticalScrollIndicator={false} contentContainerStyle={s.list}
@@ -51,7 +51,7 @@ function ReaderContent({ data }: { data: any }) {
         return <Paper testID={`verse-${item.nomorAyat}`} style={s.verse}><View style={s.verseTop}><View style={s.verseNumber}><T size={11} color={colors.brandDeep} weight="800">{surah}:{item.nomorAyat}</T></View><View style={s.verseActions}><Tap testID={`verse-${item.nomorAyat}-share-button`} style={s.smallButton} onPress={() => setModal({ type: 'share-verse', verse: { ...item, surah: data.namaLatin, number: surah } })}><Icon name="share-social-outline" size={18} color={colors.paperMuted} /></Tap><Tap testID={`verse-${item.nomorAyat}-bookmark-button`} style={s.smallButton} onPress={async () => { if (await updateSettings({ last_surah: surah, last_verse: item.nomorAyat })) notify('Penanda bacaan disimpan.'); }}><Icon name={bookmarked ? 'bookmark' : 'bookmark-outline'} size={19} color={bookmarked ? colors.brandDeep : colors.paperMuted} /></Tap></View></View>
           <T arabic paper size={27} testID={`verse-${item.nomorAyat}-arabic`} style={s.arabic}>{item.teksArab}</T>{settings.latin && item.teksLatin && <T paper testID={`verse-${item.nomorAyat}-latin`} size={12} weight="600" color={colors.brandDeep} style={s.latin}>{item.teksLatin}</T>}{settings.translation && <T paper muted testID={`verse-${item.nomorAyat}-translation`} size={13} style={s.translation}>{item.teksIndonesia}</T>}
         </Paper>;
-      }} ListFooterComponent={<T muted size={10} style={s.source}>Sumber: EQuran.id · Murotal: Misyari Rasyid Alafasy{active !== 'none' ? `\nSuasana ${active === 'rain' ? 'hujan' : 'kucing'} aktif` : ''}</T>} />
+      }} ListFooterComponent={<T muted size={10} style={s.source}>Sumber: EQuran.id · Murotal: Misyari Rasyid Alafasy{playing.length ? `\nSuasana ${playing.map(k => (k === 'rain' ? 'hujan' : 'kucing')).join(' + ')} aktif` : ''}</T>} />
   </>;
 }
 export function Reader() {

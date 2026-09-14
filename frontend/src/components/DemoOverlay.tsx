@@ -5,28 +5,32 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
-import { Badge, Bg, Icon, T, Tap } from './ui';
+import { Alarm, describeRepeat, dismissAlarmNotifications, scheduleSnooze } from '@/src/alarms';
+import { Badge, Bg, Button, Icon, T, Tap } from './ui';
 import { HoldButton, PrayerLock, SocialFeedMock } from './SocialDemo';
 import { AnimatedCat } from './AnimatedCat';
 
 export function DemoOverlay() {
-  const { modal, setModal, notify, settings, daily, snooze } = useApp(); const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets();
-  const alarm = modal.type === 'alarm';
+  const { modal, setModal, notify, settings, daily, snooze, saveAlarm } = useApp(); const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets();
+  const alarm = modal.type === 'alarm'; const real: Alarm | undefined = modal.alarm; const preview = !!modal.preview;
   const player = useAudioPlayer(alarm ? require('../../assets/audio/chime.wav') : null);
   useEffect(() => { if (alarm) { player.loop = true; player.volume = 0.5; player.play(); } return () => { try { player.pause(); } catch { /* Player may already be disposed. */ } }; }, [alarm, player]);
   const close = () => { if (alarm) player.pause(); setModal(null); };
-  const done = () => { close(); notify(alarm ? 'Alhamdulillah. Awali hari dengan niat baik.' : 'Jeda selesai. Catat salatmu di Beranda setelah menunaikannya.'); };
+  const finishAlarm = () => { if (real && !preview) { void dismissAlarmNotifications(); if (real.repeat === 'once' && real.enabled) void saveAlarm({ ...real, enabled: false }, real.id).catch(() => {}); } };
+  const done = () => { close(); finishAlarm(); notify(alarm ? 'Alhamdulillah. Awali hari dengan niat baik.' : 'Jeda selesai. Catat salatmu di Beranda setelah menunaikannya.'); };
+  const snoozeAlarm = async () => { if (!real) return; const ok = preview ? true : await scheduleSnooze(real).catch(() => false); if (!preview) void dismissAlarmNotifications(); close(); notify(ok ? `Alarm ditunda ${real.snooze_minutes} menit.` : 'Tunda memerlukan izin notifikasi. Alarm ditutup.'); };
   if (alarm) return <Bg style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
-    <View style={s.top}><Badge text="DEMONSTRASI ALARM" icon="sparkles-outline" /><Tap testID="demo-close-button" style={s.close} onPress={close}><Icon name="close" size={22} /></Tap></View>
+    <View style={s.top}><Badge text={real && !preview ? 'ALARM BERBUNYI' : real ? 'PRATINJAU ALARM' : 'DEMONSTRASI ALARM'} icon={real && !preview ? 'alarm' : 'sparkles-outline'} /><Tap testID="demo-close-button" style={s.close} onPress={close}><Icon name="close" size={22} /></Tap></View>
     <Animated.View entering={FadeInDown.duration(500)} style={s.alarmBody}>
       <View style={s.alarmArt}><AnimatedCat size={200} /></View>
-      <T size={12} weight="700" color={colors.onBrandSecondary}>AWALI HARI DENGAN SYUKUR</T>
+      <T size={12} weight="700" color={colors.onBrandSecondary}>{real ? real.label.toUpperCase() : 'AWALI HARI DENGAN SYUKUR'}</T>
       <T testID="demo-title" size={32} weight="800" style={s.center}>Selamat pagi,{"\n"}hati yang baik.</T>
-      <T size={56} weight="800" color={colors.brandTertiary} style={{ letterSpacing: -2 }}>{settings.alarm_time.replace(':', '.')}</T>
-      <View style={s.phrase}><Icon name="mic-outline" size={18} color={colors.gold} /><T size={20} weight="700">{settings.alarm_phrase}</T></View>
+      <T testID="alarm-ring-time" size={56} weight="800" color={colors.brandTertiary} style={{ letterSpacing: -2 }}>{(real?.time || settings.alarm_time).replace(':', '.')}</T>
+      {real && <T size={12} muted>{describeRepeat(real)}</T>}
+      <View style={s.phrase}><Icon name="mic-outline" size={18} color={colors.gold} /><T size={20} weight="700">{real?.phrase || settings.alarm_phrase}</T></View>
       <T size={12} muted style={s.center}>Ucapkan kalimat di atas, lalu tahan tombol untuk mematikan alarm.</T>
     </Animated.View>
-    <View style={s.bottom}><HoldButton done={done} label="Tahan 3 detik · Matikan alarm" /><T size={10} muted style={s.center}>Demo di dalam Azam. Pengenalan ucapan & alarm latar belakang menyusul pada versi native.</T></View>
+    <View style={s.bottom}>{real && <Button testID="alarm-snooze-button" title={`Tunda ${real.snooze_minutes} menit`} icon="moon-outline" variant="secondary" onPress={snoozeAlarm} />}<HoldButton done={done} label="Tahan 3 detik · Matikan alarm" /><T size={10} muted style={s.center}>{real ? 'Alarm dijadwalkan lewat notifikasi HP · pengenalan ucapan menyusul pada versi native.' : 'Demo di dalam Azam. Pengenalan ucapan menyusul pada versi native.'}</T></View>
   </Bg>;
   return <View style={{ flex: 1, backgroundColor: colors.paper }}>
     <View style={{ flex: 1, paddingTop: insets.top }}><SocialFeedMock /></View>

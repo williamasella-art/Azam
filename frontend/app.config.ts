@@ -10,8 +10,10 @@ export default {
       { name: 'AzamAyat', label: 'Azam · Seayat hari ini', description: 'Ayat harian dengan terjemahan Indonesia.', minWidth: '250dp', minHeight: '140dp', targetCellWidth: 4, targetCellHeight: 2, resizeMode: 'horizontal|vertical', updatePeriodMillis: 3600000 },
     ] }],
     ['expo-image-picker', { photosPermission: 'Pilih foto untuk kartu story salatmu', cameraPermission: 'Ambil selfie untuk kartu story salatmu' }],
+    // Alarm & prayer reminders: exact, sound + vibration, default channel for scheduled alarms.
+    ['expo-notifications', { color: '#0B7FC4', defaultChannel: 'alarms', enableBackgroundRemoteNotifications: false }],
     '@bacons/apple-targets'],
   extra: { backendUrl: process.env.EXPO_PUBLIC_BACKEND_URL },
   ios: { ...app.expo.ios, infoPlist: { NSLocationWhenInUseUsageDescription: 'Temukan jadwal salat dan arah kiblat Anda.', NSCameraUsageDescription: 'Ambil selfie untuk kartu story salatmu', NSPhotoLibraryUsageDescription: 'Pilih foto untuk kartu story salatmu' }, entitlements: { 'com.apple.security.application-groups': ['group.com.emergent.qurandaily.fst79v'] } },
-  android: { ...app.expo.android, permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'POST_NOTIFICATIONS', 'CAMERA', 'READ_MEDIA_IMAGES', 'QUERY_ALL_PACKAGES'] },
+  android: { ...app.expo.android, permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'POST_NOTIFICATIONS', 'CAMERA', 'READ_MEDIA_IMAGES', 'QUERY_ALL_PACKAGES', 'SCHEDULE_EXACT_ALARM', 'USE_EXACT_ALARM', 'VIBRATE', 'com.android.alarm.permission.SET_ALARM'] },
 };

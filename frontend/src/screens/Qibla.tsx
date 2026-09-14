@@ -22,17 +22,21 @@ export function Qibla() {
   const { settings, setModal } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { width } = useWindowDimensions();
   const [heading, setHeading] = useState<number | null>(null); const [accuracy, setAccuracy] = useState(0); const [simulated, setSimulated] = useState(0);
   const query = useQuery({ queryKey: ['qibla', settings.latitude, settings.longitude], queryFn: () => api(`/qibla?latitude=${settings.latitude}&longitude=${settings.longitude}`).then(r => r.data) });
-  const bearing = query.data?.bearing || 0;
+  const bearing = query.data?.bearing || 0; const bearingRef = useRef(bearing); bearingRef.current = bearing;
   const dial = useSharedValue(0); const needle = useSharedValue(0); const pulse = useSharedValue(1); const last = useRef(0); const smoothed = useRef<number | null>(null);
   const sensor = heading !== null;
   const current = sensor ? heading : simulated;
+  // Pushes a heading into the dial/needle shared values. Called straight from the sensor callback so
+  // the UI thread follows the phone with zero React re-render latency.
+  const drive = (value: number, animate = true) => {
+    const target = unwrap(last.current, value); last.current = target;
+    if (animate) { dial.value = withTiming(-target, FOLLOW); needle.value = withTiming(bearingRef.current - target, FOLLOW); }
+    else { dial.value = -target; needle.value = bearingRef.current - target; }
+  };
+  useEffect(() => { if (!sensor) drive(simulated); }, [simulated, sensor]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { drive(last.current, false); }, [bearing]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const target = unwrap(last.current, current); last.current = target;
-    dial.value = withTiming(-target, FOLLOW);
-    needle.value = withTiming(bearing - target, FOLLOW);
-  }, [current, bearing, dial, needle]);
-  useEffect(() => {
-    let subscription: Location.LocationSubscription | null = null; let cancelled = false;
+    let subscription: Location.LocationSubscription | null = null; let cancelled = false; let lastUi = 0;
     (async () => {
       if (Platform.OS === 'web') return;
       const permission = await Location.getForegroundPermissionsAsync();
@@ -40,17 +44,21 @@ export function Qibla() {
       const sub = await Location.watchHeadingAsync(value => {
         if (cancelled) return;
         const raw = value.trueHeading >= 0 ? value.trueHeading : value.magHeading;
-        // Light smoothing only (70% of each new reading) so the compass reacts instantly yet stays free of jitter.
+        // Adaptive smoothing: big turns pass through almost raw (instant response), tiny changes are damped (no jitter).
         const previous = smoothed.current ?? raw;
-        const next = (unwrap(previous, raw) - previous) * 0.7 + previous;
-        smoothed.current = ((next % 360) + 360) % 360;
-        setHeading(smoothed.current);
-        setAccuracy(value.accuracy);
+        const delta = unwrap(previous, raw) - previous;
+        const alpha = Math.min(1, 0.35 + Math.abs(delta) / 25);
+        const next = ((previous + delta * alpha) % 360 + 360) % 360;
+        smoothed.current = next;
+        drive(next);
+        // Text/state updates are throttled to ~8 Hz — they only feed labels and the aligned check.
+        const stamp = Date.now();
+        if (stamp - lastUi > 120) { lastUi = stamp; setHeading(next); setAccuracy(value.accuracy); }
       });
       if (cancelled) sub.remove(); else subscription = sub;
     })().catch(() => setHeading(null));
     return () => { cancelled = true; subscription?.remove(); };
-  }, [settings.location_set, settings.latitude, settings.longitude]);
+  }, [settings.location_set, settings.latitude, settings.longitude]); // eslint-disable-line react-hooks/exhaustive-deps
   const delta = Math.abs(((bearing - current + 540) % 360) - 180);
   const aligned = delta <= 5 && (!sensor || accuracy >= 2);
   useEffect(() => { pulse.value = withSpring(aligned ? 1.06 : 1, { damping: 8 }); if (aligned && Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); }, [aligned, pulse]);

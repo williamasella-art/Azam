@@ -5,7 +5,9 @@ import { useApp } from '@/src/AppContext';
 import { api } from '@/src/api';
 import { fontFor, makeStyles, useTheme } from '@/src/theme';
 import { openSettings, requestLocation, requestNotifications } from '@/src/permissions';
-import { Badge, Button, Card, Icon, T, Tap } from './ui';
+import { Alarm, AlarmRepeat, DAY_SHORT, describeRepeat, localDay, nextFire, openSystemAlarm, showTime, untilText } from '@/src/alarms';
+import { cancelPrayerNotifications } from './PrayerNotifications';
+import { Button, Card, Icon, T, Tap } from './ui';
 
 export const CITIES = [
   { name: 'Jakarta', lat: -6.2088, lon: 106.8456 }, { name: 'Bandung', lat: -6.9175, lon: 107.6191 },
@@ -62,11 +64,11 @@ export function NotificationSheet() {
       else { setBlocked(!result.canAskAgain); setMessage('Notifikasi belum diizinkan. Fitur salat dan bacaan tetap dapat digunakan.'); }
     } catch { setMessage('Notifikasi belum tersedia pada perangkat ini. Anda tetap dapat melanjutkan.'); } finally { setBusy(false); }
   };
-  return <View style={s.body}><View style={s.centerIcon}><Icon name="notifications-outline" size={43} color={colors.brandPrimary} /></View><T size={23} weight="800" style={s.center}>Pengingat untuk kembali.</T><T muted style={s.center}>Izinkan notifikasi agar Azam dapat mengingatkan waktu salat. Izin baru diminta setelah Anda menekan tombol di bawah.</T><Card><T size={12} muted>Pengingat lokal dijadwalkan untuk sisa hari ini ketika Azam dibuka. Pengingat berulang lintas hari dan alarm latar belakang khusus belum tersedia.</T></Card>
+  return <View style={s.body}><View style={s.centerIcon}><Icon name="notifications-outline" size={43} color={colors.brandPrimary} /></View><T size={23} weight="800" style={s.center}>Pengingat untuk kembali.</T><T muted style={s.center}>Izinkan notifikasi agar Azam dapat mengingatkan waktu salat. Izin baru diminta setelah Anda menekan tombol di bawah.</T><Card><T size={12} muted>Pengingat salat dijadwalkan untuk sisa hari ini ketika Azam dibuka. Alarm dzikir yang kamu setel berbunyi sesuai tanggal & jamnya, juga saat aplikasi ditutup.</T></Card>
     {message !== '' && <T testID="notification-status-message" size={12} color={colors.onBrandSecondary}>{message}</T>}
     <Button testID="notification-enable-button" title={settings.notifications ? 'Periksa izin notifikasi' : 'Izinkan notifikasi'} onPress={request} loading={busy} />
     {blocked && <Button testID="notification-open-settings-button" title="Buka Pengaturan" onPress={openSettings} variant="secondary" />}
-    {settings.notifications && <Button testID="notification-disable-button" title="Nonaktifkan pengingat" variant="secondary" onPress={async () => { if (Platform.OS !== 'web') { const n = await import('expo-notifications'); await n.cancelAllScheduledNotificationsAsync(); } await updateSettings({ notifications: false }); setModal(null); }} />}
+    {settings.notifications && <Button testID="notification-disable-button" title="Nonaktifkan pengingat" variant="secondary" onPress={async () => { await cancelPrayerNotifications(); await updateSettings({ notifications: false }); setModal(null); }} />}
     <Button testID="notification-skip-button" title="Lanjutkan tanpa notifikasi" variant="secondary" onPress={() => setModal(null)} />
   </View>;
 }
@@ -84,19 +86,57 @@ export function Wheel({ items, value, onChange, testID, pad = true }: { items: n
       {items.map((item, i) => <Tap key={item} testID={`${testID}-${item}`} haptic={false} onPress={() => { onChange(item); ref.current?.scrollTo({ y: i * ITEM_H, animated: true }); }} style={s.wheelItem}><T size={item === value ? 26 : 18} weight={item === value ? '800' : '500'} color={item === value ? colors.onSurface : colors.muted}>{pad ? String(item).padStart(2, '0') : item}</T></Tap>)}
     </ScrollView></View>;
 }
-export function AlarmSettingsSheet() {
-  const { settings, updateSettings, setModal, notify } = useApp(); const s = useStyles(); const { colors } = useTheme();
-  const [hour, setHour] = useState(Number(settings.alarm_time.split(':')[0])); const [minute, setMinute] = useState(Number(settings.alarm_time.split(':')[1]));
-  const [phrase, setPhrase] = useState(settings.alarm_phrase); const [custom, setCustom] = useState(DZIKIR.includes(settings.alarm_phrase) ? '' : settings.alarm_phrase); const [error, setError] = useState('');
-  const chosen = custom.trim() || phrase;
-  return <View style={s.body}><Badge text="PENGATURAN ALARM" /><T muted size={12}>Geser roda untuk memilih jam dan menit. Alarm belum berbunyi otomatis di latar belakang.</T>
-    <View style={s.timeRow}><Wheel testID="alarm-hour-wheel" items={Array.from({ length: 24 }, (_, i) => i)} value={hour} onChange={setHour} /><T size={34} weight="800" style={{ marginTop: 8 }}>:</T><Wheel testID="alarm-minute-wheel" items={Array.from({ length: 12 }, (_, i) => i * 5)} value={minute} onChange={setMinute} /></View>
-    <T testID="alarm-time-preview" size={13} weight="700" style={s.center}>Bangun pukul {String(hour).padStart(2, '0')}.{String(minute).padStart(2, '0')}</T>
+export const REPEATS: { key: AlarmRepeat; label: string; icon: string }[] = [{ key: 'once', label: 'Sekali', icon: 'calendar-outline' }, { key: 'daily', label: 'Setiap hari', icon: 'sunny-outline' }, { key: 'weekly', label: 'Mingguan', icon: 'repeat-outline' }];
+const upcomingDates = () => Array.from({ length: 30 }, (_, i) => localDay(new Date(Date.now() + i * 86400000)));
+/** Create or edit one alarm: date/time, label, repeat pattern, snooze, and the dzikir phrase. */
+export function AlarmFormSheet() {
+  const { modal, saveAlarm, removeAlarm, setModal, notify } = useApp(); const s = useStyles(); const { colors } = useTheme();
+  const editing: Alarm | undefined = modal.alarm;
+  const [hour, setHour] = useState(Number((editing?.time || '04:30').split(':')[0])); const [minute, setMinute] = useState(Number((editing?.time || '04:30').split(':')[1]));
+  const [label, setLabel] = useState(editing?.label || 'Bangun dzikir'); const [repeat, setRepeat] = useState<AlarmRepeat>(editing?.repeat || 'once');
+  const [date, setDate] = useState(editing?.date || localDay(new Date(Date.now() + 86400000))); const [weekdays, setWeekdays] = useState<number[]>(editing?.weekdays?.length ? editing.weekdays : [1, 2, 3, 4, 5]);
+  const [snooze, setSnooze] = useState(editing?.snooze_minutes || 5);
+  const [phrase, setPhrase] = useState(editing?.phrase && DZIKIR.includes(editing.phrase) ? editing.phrase : DZIKIR[0]); const [custom, setCustom] = useState(editing?.phrase && !DZIKIR.includes(editing.phrase) ? editing.phrase : '');
+  const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [permission, setPermission] = useState<'granted' | 'missing' | 'blocked' | 'web'>(Platform.OS === 'web' ? 'web' : 'granted');
+  useEffect(() => { if (Platform.OS !== 'web') import('expo-notifications').then(n => n.getPermissionsAsync()).then(p => setPermission(p.granted ? 'granted' : p.canAskAgain ? 'missing' : 'blocked')).catch(() => {}); }, []);
+  const chosen = custom.trim() || phrase; const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  const draft = { label: label.trim(), time, repeat, date: repeat === 'once' ? date : null, weekdays: repeat === 'weekly' ? weekdays : [], enabled: editing?.enabled ?? true, phrase: chosen.trim(), snooze_minutes: snooze };
+  const preview = nextFire(draft);
+  const askPermission = async () => {
+    const result: any = await requestNotifications();
+    setPermission(result.granted ? 'granted' : result.canAskAgain ? 'missing' : 'blocked');
+    if (result.granted) notify('Izin notifikasi aktif. Alarm akan berbunyi di HP ini.');
+  };
+  const save = async () => {
+    if (!draft.label) { setError('Beri nama alarmnya, mis. Bangun subuh.'); return; }
+    if (!chosen.trim()) { setError('Pilih atau tulis satu dzikir.'); return; }
+    if (repeat === 'weekly' && !weekdays.length) { setError('Pilih minimal satu hari.'); return; }
+    if (repeat === 'once' && !preview) { setError('Waktu ini sudah lewat. Pilih tanggal atau jam berikutnya.'); return; }
+    setBusy(true); setError('');
+    try { await saveAlarm({ ...draft, enabled: true }, editing?.id); setModal(null); notify(editing ? 'Alarm diperbarui.' : preview ? `Alarm disetel · berbunyi dalam ${untilText(preview)}.` : 'Alarm disimpan.'); }
+    catch (e: any) { setError(e.message); } finally { setBusy(false); }
+  };
+  const remove = async () => { if (!editing) return; setBusy(true); try { await removeAlarm(editing.id); setModal(null); notify('Alarm dihapus.'); } catch (e: any) { setError(e.message); } finally { setBusy(false); } };
+  const toClock = async () => { try { await openSystemAlarm(draft); } catch { setError('Aplikasi Jam di HP belum bisa dibuka dari sini. Alarm notifikasi Azam tetap berjalan.'); } };
+  return <View style={s.body}>
+    <View style={s.timeRow}><Wheel testID="alarm-hour-wheel" items={Array.from({ length: 24 }, (_, i) => i)} value={hour} onChange={setHour} /><T size={34} weight="800" style={{ marginTop: 8 }}>:</T><Wheel testID="alarm-minute-wheel" items={Array.from({ length: 60 }, (_, i) => i)} value={minute} onChange={setMinute} /></View>
+    <T testID="alarm-time-preview" size={13} weight="700" style={s.center}>{preview ? `Berbunyi ${describeRepeat(draft).toLowerCase()} pukul ${showTime(time)} · dalam ${untilText(preview)}` : `Pukul ${showTime(time)} · waktu ini sudah lewat`}</T>
+    <View style={s.field}><T size={12} weight="600">Nama alarm</T><TextInput testID="alarm-label-input" style={s.input} value={label} onChangeText={setLabel} maxLength={60} placeholder="mis. Bangun subuh, Tahajud" placeholderTextColor={colors.muted} /></View>
+    <T size={12} weight="600">Pengulangan</T>
+    <View style={s.segment}>{REPEATS.map(r => <Tap key={r.key} testID={`alarm-repeat-${r.key}`} style={[s.segmentItem, repeat === r.key && s.chipActive]} onPress={() => setRepeat(r.key)} accessibilityState={{ selected: repeat === r.key }}><Icon name={r.icon} size={15} color={repeat === r.key ? colors.onBrandPrimary : colors.onSurfaceTertiary} /><T size={12} weight="600" color={repeat === r.key ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{r.label}</T></Tap>)}</View>
+    {repeat === 'once' && <View style={s.field}><T size={12} weight="600">Tanggal</T><View style={s.dateRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>{upcomingDates().map((d, i) => { const on = d === date; const dt = new Date(`${d}T12:00:00`); return <Tap key={d} testID={`alarm-date-${d}`} style={[s.dateChip, on && s.chipActive]} onPress={() => setDate(d)} accessibilityState={{ selected: on }}><T size={10} weight="600" color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{i === 0 ? 'Hari ini' : i === 1 ? 'Besok' : DAY_SHORT[dt.getDay()]}</T><T size={16} weight="800" color={on ? colors.onBrandPrimary : colors.onSurface}>{dt.getDate()}</T><T size={9} color={on ? colors.onBrandPrimary : colors.muted}>{dt.toLocaleDateString('id-ID', { month: 'short' })}</T></Tap>; })}</ScrollView></View>
+      <T testID="alarm-date-preview" size={11} muted>{new Date(`${date}T12:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</T></View>}
+    {repeat === 'weekly' && <View style={s.field}><T size={12} weight="600">Hari</T><View style={s.weekRow}>{DAY_SHORT.map((d, i) => { const on = weekdays.includes(i); return <Tap key={d} testID={`alarm-weekday-${i}`} style={[s.dayChip, on && s.chipActive]} onPress={() => setWeekdays(on ? weekdays.filter(x => x !== i) : [...weekdays, i].sort())} accessibilityState={{ selected: on }}><T size={11} weight="700" color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{d}</T></Tap>; })}</View></View>}
+    <T size={12} weight="600">Tunda (snooze)</T><View style={s.wrapChips}>{[5, 10, 15].map(m => <Tap key={m} testID={`alarm-snooze-${m}`} style={[s.chip, snooze === m && s.chipActive]} onPress={() => setSnooze(m)}><T size={12} weight="600" color={snooze === m ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{m} menit</T></Tap>)}</View>
     <T weight="700">Dzikir yang diucapkan</T><T muted size={11}>Pilih dari daftar atau tulis dzikir pilihanmu sendiri.</T>
     <View style={s.wrapChips}>{DZIKIR.map((p, i) => <Tap key={p} testID={`alarm-phrase-${i}`} style={[s.chip, chosen === p && s.chipActive]} onPress={() => { setPhrase(p); setCustom(''); }}><T size={12} weight="600" color={chosen === p ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{p}</T></Tap>)}</View>
     <TextInput testID="alarm-phrase-input" style={s.input} value={custom} onChangeText={setCustom} maxLength={80} placeholder="Tulis dzikir sendiri, mis. Ya Latif, Ya Karim" placeholderTextColor={colors.muted} />
-    <Card><T size={12} muted>Pada demonstrasi, tahan tombol 3 detik untuk menutup. Pengucapan dzikir belum diverifikasi dan mikrofon tidak digunakan.</T></Card>{error !== '' && <T testID="alarm-form-error" color={colors.error} size={12}>{error}</T>}
-    <Button testID="alarm-save-button" title="Simpan alarm" onPress={async () => { if (!chosen.trim()) { setError('Pilih atau tulis satu dzikir.'); return; } if (await updateSettings({ alarm_time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, alarm_phrase: chosen.trim() })) { setModal(null); notify('Preferensi alarm disimpan.'); } }} />
+    {permission !== 'granted' && permission !== 'web' && <Card style={s.info}><Icon name="notifications-outline" size={22} color={colors.onBrandSecondary} /><View style={{ flex: 1, gap: 8 }}><T size={12} muted>Agar alarm berbunyi di HP ini, Azam perlu izin notifikasi. Alarm tetap tersimpan meski belum diizinkan.</T>{permission === 'missing' ? <Button testID="alarm-permission-button" title="Izinkan notifikasi" size="sm" onPress={askPermission} /> : <Button testID="alarm-open-settings-button" title="Buka Pengaturan" size="sm" variant="secondary" onPress={openSettings} />}</View></Card>}
+    {permission === 'web' && <T size={11} muted>Di pratinjau web alarm hanya tersimpan; ia berbunyi saat Azam dibuka di HP.</T>}
+    {error !== '' && <T testID="alarm-form-error" color={colors.error} size={12}>{error}</T>}
+    <Button testID="alarm-save-button" title={editing ? 'Simpan perubahan' : 'Setel alarm'} icon="alarm-outline" onPress={save} loading={busy} />
+    {Platform.OS === 'android' && <Button testID="alarm-system-clock-button" title="Setel juga di Jam HP" icon="phone-portrait-outline" variant="secondary" onPress={toClock} />}
+    {editing && <Button testID="alarm-delete-button" title="Hapus alarm" icon="trash-outline" variant="danger" onPress={remove} disabled={busy} />}
   </View>;
 }
 export const APP_CATEGORIES: { key: string; icon: string }[] = [{ key: 'Sosmed', icon: 'chatbubbles-outline' }, { key: 'Game', icon: 'game-controller-outline' }, { key: 'Video', icon: 'videocam-outline' }, { key: 'Belanja', icon: 'cart-outline' }, { key: 'Lainnya', icon: 'apps-outline' }];
@@ -132,4 +172,7 @@ const useStyles = makeStyles(c => ({
   field: { gap: 8 }, input: { borderWidth: 1, borderColor: c.borderStrong, borderRadius: 15, height: 51, paddingHorizontal: 15, fontFamily: fontFor('500'), fontSize: 14, color: c.onSurface, backgroundColor: c.surface, outlineWidth: 0 }, twoFields: { flexDirection: 'row', gap: 12 }, flexField: { flex: 1, gap: 8 }, center: { textAlign: 'center' }, centerIcon: { width: 90, height: 90, borderRadius: 30, backgroundColor: c.brandSecondary, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginVertical: 10 },
   appRow: { flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 60, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: c.border }, appIcon: { width: 42, height: 42, borderRadius: 13, justifyContent: 'center', alignItems: 'center', backgroundColor: c.brandSecondary },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }, wheel: { width: 96, height: ITEM_H * 3, borderRadius: 20, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border, overflow: 'hidden' }, wheelHighlight: { position: 'absolute', top: ITEM_H, left: 6, right: 6, height: ITEM_H, borderRadius: 14, backgroundColor: c.brandSecondary, borderWidth: 1, borderColor: c.brandTertiary }, wheelItem: { height: ITEM_H, alignItems: 'center', justifyContent: 'center' },
+  segment: { flexDirection: 'row', gap: 8 }, segmentItem: { flex: 1, height: 44, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: c.border, backgroundColor: c.glass },
+  dateRow: { height: 72, flexShrink: 0 }, dateChip: { width: 62, height: 68, flexShrink: 0, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.border, backgroundColor: c.glass },
+  weekRow: { flexDirection: 'row', gap: 6 }, dayChip: { flex: 1, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.border, backgroundColor: c.glass },
 }));

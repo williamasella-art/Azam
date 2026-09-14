@@ -14,12 +14,6 @@ export const IMG = {
   instagram: require('../assets/images/gen/onboard_instagram.jpg'),
   timer: require('../assets/images/gen/onboard_timer.jpg'),
 };
-export const BADGES: Record<string, any> = {
-  Awan: require('../assets/images/gen/badge-awan.png'),
-  Bintang: require('../assets/images/gen/badge-bintang.png'),
-  Purnama: require('../assets/images/gen/badge-purnama.png'),
-  Syams: require('../assets/images/gen/badge-syams.png'),
-};
 export const LEVEL_COPY: Record<string, string> = {
   Awan: 'Langkah pertama yang berarti. Satu hari penuh lima waktu.',
   Bintang: 'Tujuh hari merawat niat. Kamu mulai bersinar.',

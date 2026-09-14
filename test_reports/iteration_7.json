@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 7 focused on new multi-alarm system. Backend: 13/13 new pytest cases PASS (/app/backend/tests/test_iter7_alarms.py) — guest auth token, GET /api/alarms wrapper {data:[]}, POST once/daily/weekly, PUT update label+time+enabled, DELETE soft-delete (404 for unknown id, deleted rows disappear from list), validation (once without date -> 422 detail 'Pilih tanggal untuk alarm sekali.', weekly with empty weekdays -> 422 string detail, bad time '25:00' -> 422), per-user isolation (foreign guest token gets 404 on GET/PUT/DELETE), max 20 alarms enforced (21st -> 422). Existing suites (test_api_core 15/15, test_iter6_new_features 8/8) untouched. Frontend on 390x844 fresh guest login: intro-skip-button → guest-login-button → Home shows home-alarm-button card 'Bangun dengan dzikir'. Tapping opens Alarms screen with title 'Alarm dzikir', header alarm-add-button (+), empty state with alarm-empty-add-button 'Tambah alarm'. Add-alarm sheet 'Alarm baru' contains hour/minute wheels (alarm-hour-wheel-<n>, alarm-minute-wheel-<n> all tappable, tested with 6/15 and 5/45), alarm-label-input, repeat chips alarm-repeat-once/daily/weekly, dynamic alarm-date-YYYY-MM-DD chips for once (verified for tomorrow date), alarm-weekday-0..6 for weekly (default preselects Mon-Fri [1,2,3,4,5]), alarm-snooze-5/10/15, DZIKIR alarm-phrase-<i> chips + alarm-phrase-input free text, alarm-time-preview text ('Berbunyi besok, 15 Sep 2026 pukul 06.15 · dalam 12 jam 50 menit' for once, 'Berbunyi setiap hari kerja pukul 04.30 · dalam 11 jam 0 menit' for weekly), alarm-save-button. Once-alarm for tomorrow saved successfully -> sheet closed, toast 'Alarm disetel · berbunyi dalam 12 jam 50 menit.', alarm-card-<suffix> rendered with alarm-time-* + repeat label 'Besok, 15 Sep 2026' + alarm-switch-* toggle. Hero card at top shows alarms-next-time + alarms-next-until. Daily save produced 'Setiap hari' description; Weekly (default Mon-Fri) produced 'Hari kerja' description. Toggle alarm-switch-* OFF -> 'Nonaktif' text visible and hero updates; toggle back ON restores card. Edit via alarm-edit-<suffix> opens sheet titled 'Ubah alarm' prefilled with existing values; changing label to 'TEST edited daily' + save updates card. alarm-delete-<suffix> row action removes card and shows 'Alarm dihapus.' toast. alarm-preview-<suffix> opens full-screen overlay with badge 'PRATINJAU ALARM', alarm-ring-time, alarm-snooze-button, 'Tahan 3 detik · Matikan alarm' hold text, demo-close-button — snooze on web dismisses overlay cleanly. Focus tab (tab-focus) shows alarm-time, alarm-manage-button (navigates to Alarms), alarm-demo-button (opens demo overlay), alarm-edit-button (opens form). alarm-manage-button -> Alarms -> header-back-button returns to Focus tab. header-settings-button -> Settings shows settings-alarm-button labelled 'Alarm dzikir · 1 alarm aktif · tanggal, jam & pengulangan' and navigates to Alarms screen. 0 console errors during entire flow. All /api/alarms HTTP calls returned 200. No deprecated Expo packages (expo-audio, expo-notifications, expo-intent-launcher — all current; expo-av NOT used). No React red screen. No SafeAreaView deprecation issues.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter7_alarms.py",
+    "/app/test_reports/pytest/pytest_iter7.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Alarm CRUD is per-user via alarm_query(user) using user_id + deleted_at=None on every read/update/delete — verified isolation with two guest tokens (foreign PUT/DELETE returns 404, not 403; acceptable and prevents user enumeration).",
+    "Soft-delete design (setting deleted_at) means historical alarms are preserved server-side while disappearing from GET list; MongoDB compound index on (user_id, id) ensures fast per-user lookup.",
+    "Custom RequestValidationError handler correctly flattens Pydantic errors to a single string 'detail' and strips 'Value error, ' prefix — validated for all three 422 cases (once-without-date, weekly-empty-weekdays, bad-time).",
+    "AlarmInput.check_schedule normalizes weekly weekdays via sorted({d for d in weekdays if 0<=d<=6}) — deduplicates and clamps range in one pass; robust to client sending [7, -1, 1, 1].",
+    "Max-20 enforcement uses count_documents(alarm_query) which excludes soft-deleted rows, so users can churn alarms without hitting the limit erroneously.",
+    "Frontend AlarmFormSheet correctly guards 'weekly with no weekdays' locally before POST (setError 'Pilih minimal satu hari.') AND backend rejects — belt-and-suspenders.",
+    "Frontend NOTE (already correct): the once-past-time guard `if (repeat === 'once' && !preview)` is scoped to once only; weekly/daily can save even when today's time slot is past because next occurrence rolls forward — confirmed via 04:30 daily save when local time was past 04:30.",
+    "No deprecated Expo packages: uses expo-audio (not expo-av), expo-notifications, expo-intent-launcher — all match Expo SDK 57 current guidance."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter7_alarms.py",
+    "/app/test_reports/iteration_7.json",
+    "/app/test_reports/pytest/pytest_iter7.xml"
+  ],
+  "success_rate": { "backend": "100% (13/13 new + 23/23 pre-existing = 36/36)", "frontend": "100%" },
+  "seed_data_creation": "All test data was ephemeral: each pytest test uses a fresh POST /api/auth/guest token; alarms are per-user so they auto-scope. The max-20 test creates 20 alarms on an isolated guest and does not affect other tests. Frontend test also used a fresh guest each iteration (localStorage.clear + reload).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Frontend URL https://alarm-scheduler-pro-1.preview.emergentagent.com (390x844). Auth = POST /api/auth/guest -> Bearer session_token (30-day TTL). Alarms endpoints: GET/POST /api/alarms, PUT /api/alarms/{id}, DELETE /api/alarms/{id} (soft). Native-only surfaces skipped: real OS alarm ringing / snooze scheduling (expo-notifications native), Android system-clock intent (expo-intent-launcher — button appears only on Platform.OS === 'android'). On web, an info banner correctly explains 'Di pratinjau web, alarm hanya tersimpan.' Regression check-list from iter1-6 (prayer times, Quran, Progress, Blocker, Share composer) is UNCHANGED — validated implicitly by 23/23 pre-existing pytest still passing and no console errors during the alarm flow which crosses Home hero + Focus tab + Settings screen. IMPORTANT gotcha for future automation: alarm form default weekdays = [1,2,3,4,5]; if you tap alarm-weekday-1..5 individually intending to 'select Mon-Fri', you'll TOGGLE them OFF and save will silently fail (frontend shows 'Pilih minimal satu hari.' error in the sheet). Either leave defaults untouched or first tap the currently-selected chips off before rebuilding the set.",
+  "rca_of_issue": "N/A — no bugs discovered. All 13 new alarm backend tests pass on first run; frontend flow (create x3, toggle, edit, delete, preview overlay, Focus tab integration, Settings integration) passes end-to-end with 0 console errors and all /api/alarms responses 200."
+}

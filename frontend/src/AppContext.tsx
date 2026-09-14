@@ -8,7 +8,7 @@ import { storage } from './utils/storage';
 import { setColorScheme } from './theme';
 
 WebBrowser.maybeCompleteAuthSession();
-export type ScreenName = 'home' | 'quran' | 'focus' | 'progress' | 'settings' | 'qibla' | 'achievements' | 'pro' | 'reader' | 'hajj';
+export type ScreenName = 'home' | 'quran' | 'focus' | 'progress' | 'settings' | 'qibla' | 'achievements' | 'pro' | 'reader' | 'hajj' | 'alarms';
 export const INTRO_KEY = 'azam-intro-done';
 export const INTRO_PREFS_KEY = 'azam-intro-prefs';
 const Context = createContext<any>(null);
@@ -146,7 +146,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })();
     }
   }, [user, settings, prayers.data, day, localMinute]);
+  const events = useQuery({ queryKey: ['islamic-events', day], queryFn: () => api(`/islamic-events?start=${day}&days=400`).then(r => r.data), enabled: !!user, staleTime: 86400000 });
   const daily = useQuery({ queryKey: ['daily', day], queryFn: () => api(`/quran/daily?day=${day}`).then(r => r.data), enabled: !!user, staleTime: 3600000 });
+  // Alarms live on the server (synced across devices) with a local copy so they still load and ring offline.
+  const alarms = useQuery({ queryKey: ['alarms', user?.user_id], enabled: !!user, queryFn: async () => {
+    const key = `alarms-cache:${user.user_id}`;
+    try { const list = (await api('/alarms')).data; await storage.setItem(key, list as any); return list; }
+    catch (e) { const cached = (await storage.getItem<any>(key, null)) as any[] | null; if (cached) return cached; throw e; }
+  } });
+  const saveAlarm = async (input: any, id?: string) => {
+    const value = await api(id ? `/alarms/${id}` : '/alarms', input, id ? 'PUT' : 'POST');
+    await queryClient.invalidateQueries({ queryKey: ['alarms'] }); return value;
+  };
+  const removeAlarm = async (id: string) => { await api(`/alarms/${id}`, undefined, 'DELETE'); await queryClient.invalidateQueries({ queryKey: ['alarms'] }); };
   // Celebrate newly unlocked levels once, per account.
   useEffect(() => {
     const levels = progress.data?.levels; if (!user || !levels) return;
@@ -180,6 +192,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     snoozeTimer.current = setTimeout(() => setModal({ type: 'blocker' }), 5 * 60 * 1000);
   };
   return <Context.Provider value={{ user, loading, authError, guest, google, logout, settings, updateSettings, screen, go, lastTab, surah, read, introDone, showIntro, setShowIntro, finishIntro,
-    toast, notify, modal, setModal, now, day, month, setMonth, progress, prayers, tomorrowPrayers, daily, checkin, checking, snooze }}>{children}</Context.Provider>;
+    toast, notify, modal, setModal, now, day, localMinute, month, setMonth, events, progress, prayers, tomorrowPrayers, daily, checkin, checking, snooze, alarms, saveAlarm, removeAlarm }}>{children}</Context.Provider>;
 }
 export const useApp = () => useContext(Context);

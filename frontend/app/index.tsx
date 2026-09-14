@@ -9,7 +9,10 @@ import { makeStyles, useTheme } from '@/src/theme';
 import { Icon, T, Tap } from '@/src/components/ui';
 import { GlobalOverlay, Toast } from '@/src/components/GlobalOverlay';
 import { PrayerNotifications } from '@/src/components/PrayerNotifications';
+import { AlarmScheduler } from '@/src/components/AlarmScheduler';
+import { AdhanPlayer } from '@/src/components/AdhanPlayer';
 import { WidgetSync } from '@/src/components/WidgetSync';
+import { Alarms } from '@/src/screens/Alarms';
 import { Loading, Welcome } from '@/src/screens/Welcome';
 import { Intro } from '@/src/screens/Intro';
 import { Home } from '@/src/screens/Home';
@@ -17,7 +20,8 @@ import { Quran, Reader } from '@/src/screens/Quran';
 import { Focus } from '@/src/screens/Focus';
 import { Progress, Achievements } from '@/src/screens/Progress';
 import { Qibla } from '@/src/screens/Qibla';
-import { Hajj, Pro, Settings } from '@/src/screens/Settings';
+import { Pro, Settings } from '@/src/screens/Settings';
+import { Hajj } from '@/src/screens/Hajj';
 
 const TABS: { key: ScreenName; label: string; icon: string; selected: string }[] = [
   { key: 'home', label: 'Beranda', icon: 'home-outline', selected: 'home' },
@@ -29,7 +33,7 @@ const TABS: { key: ScreenName; label: string; icon: string; selected: string }[]
 export default function Index() {
   const { user, loading, settings, screen, go, modal, introDone, showIntro } = useApp(); const { colors, scheme } = useTheme(); const s = useStyles();
   const tabScreen = TABS.some(tab => tab.key === screen);
-  const screens: Record<ScreenName, React.ReactNode> = { home: <Home />, quran: <Quran />, focus: <Focus />, progress: <Progress />, reader: <Reader />, qibla: <Qibla />, achievements: <Achievements />, settings: <Settings />, pro: <Pro />, hajj: <Hajj /> };
+  const screens: Record<ScreenName, React.ReactNode> = { home: <Home />, quran: <Quran />, focus: <Focus />, progress: <Progress />, reader: <Reader />, qibla: <Qibla />, achievements: <Achievements />, settings: <Settings />, pro: <Pro />, hajj: <Hajj />, alarms: <Alarms /> };
   const needsIntro = showIntro || (!user && introDone === false) || (!!user && settings && !settings.onboarded);
   return <View style={s.root}><StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     <SafeAreaView style={s.frame} edges={user && !needsIntro ? ['top', 'bottom'] : []}>
@@ -42,7 +46,7 @@ export default function Index() {
             <Icon name={active ? tab.selected : tab.icon} size={22} color={active ? colors.onBrandPrimary : colors.onSurfaceTertiary} /><T size={9} weight="700" color={active ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{tab.label}</T>
           </Tap>;
         })}</View></View>}
-        <PrayerNotifications /><WidgetSync />
+        <PrayerNotifications /><AlarmScheduler /><AdhanPlayer /><WidgetSync />
       </>}
       {!modal && <Toast />}
     </SafeAreaView><GlobalOverlay />

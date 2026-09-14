@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Platform, ScrollView, View } from 'react-native';
+import { Image, Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
@@ -14,7 +14,9 @@ import { CITIES } from '@/src/components/FormSheets';
 
 const STEPS = ['Halo', 'Notifikasi', 'Lokasi', 'Tentang kamu', 'Salam', 'Demo', 'Pengingat'];
 export function Intro() {
-  const { finishIntro } = useApp(); const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets();
+  const { finishIntro } = useApp(); const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets(); const { width, height } = useWindowDimensions();
+  const compact = height < 760; const titleSize = width < 380 ? (compact ? 24 : 26) : compact ? 26 : 30; const bodySize = width < 380 ? 13 : 14;
+  const heroHeight = Math.max(150, Math.min(Math.round(height * 0.34), 320));
   const [step, setStep] = useState(0);
   const [prefs, setPrefs] = useState<any>({ reminder_minutes: 10, gender: '' });
   const [notifState, setNotifState] = useState<any>(null); const [locState, setLocState] = useState<any>(null); const [busy, setBusy] = useState(false);
@@ -50,34 +52,34 @@ export function Intro() {
     <View style={{ height: insets.bottom, backgroundColor: demo === 'locked' ? colors.pageTop : colors.paper }} />
   </View>;
   return <Bg>
-    <ScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 20 }]} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[s.page, { minHeight: height, paddingTop: insets.top + 14, paddingBottom: insets.bottom + 20 }]} showsVerticalScrollIndicator={false} bounces={false}>
       <View style={s.topRow}><Logo size={34} wordmark /><Tap testID="intro-skip-button" onPress={() => finishIntro(prefs)} style={s.skip}><T size={12} weight="700" color={colors.onBrandSecondary}>Lewati</T></Tap></View>
       <View style={s.dots}>{STEPS.map((_, i) => <View key={i} style={[s.dot, i === step && s.dotActive, i < step && s.dotDone]} />)}</View>
       <Animated.View key={step} entering={FadeInRight.duration(380)} exiting={FadeOutLeft.duration(200)} style={s.body}>
-        <Image source={hero} style={s.hero} testID={`intro-image-${step}`} />
+        <View style={[s.heroWrap, { minHeight: heroHeight }]}><Image source={hero} style={s.hero} testID={`intro-image-${step}`} /></View>
         <Badge text={`${step + 1} / ${STEPS.length} · ${STEPS[step].toUpperCase()}`} />
-        {step === 0 && <><T testID="intro-title" size={30} weight="800" style={s.title}>Assalamu’alaikum 👋</T><T muted size={14} style={s.text}>Azam bantu kamu jeda dari layar saat azan, bangun dengan dzikir, dan menjaga streak salat. Yuk kenalan sebentar.</T>
+        {step === 0 && <><T testID="intro-title" size={titleSize} weight="800" style={s.title}>Assalamu’alaikum 👋</T><T muted size={bodySize} style={s.text}>Azam bantu kamu jeda dari layar saat azan, bangun dengan dzikir, dan menjaga streak salat. Yuk kenalan sebentar.</T>
           <Button testID="intro-next-button" title="Mulai tur singkat" icon="arrow-forward" onPress={next} /></>}
-        {step === 1 && <><T testID="intro-title" size={28} weight="800" style={s.title}>Aktifkan notifikasi</T><T muted size={14} style={s.text}>Kami ingatkan beberapa menit sebelum azan, supaya kamu bisa bersiap tanpa terlambat.</T>
+        {step === 1 && <><T testID="intro-title" size={titleSize} weight="800" style={s.title}>Aktifkan notifikasi</T><T muted size={bodySize} style={s.text}>Kami ingatkan beberapa menit sebelum azan, supaya kamu bisa bersiap tanpa terlambat.</T>
           {feedback(notifState, 'intro-notif-status')}
           <Button testID="intro-notif-button" title={notifState?.ok ? 'Notifikasi aktif ✓' : 'Aktifkan notifikasi'} icon="notifications-outline" loading={busy} onPress={notif} disabled={notifState?.ok} />
           <Button testID="intro-next-button" title={notifState ? 'Lanjut' : 'Nanti saja'} variant="secondary" onPress={next} /></>}
-        {step === 2 && <><T testID="intro-title" size={28} weight="800" style={s.title}>Aktifkan lokasi</T><T muted size={14} style={s.text}>Lokasi dipakai untuk jadwal salat & arah kiblat. Tidak dilacak di latar belakang.</T>
+        {step === 2 && <><T testID="intro-title" size={titleSize} weight="800" style={s.title}>Aktifkan lokasi</T><T muted size={bodySize} style={s.text}>Lokasi dipakai untuk jadwal salat & arah kiblat. Tidak dilacak di latar belakang.</T>
           {feedback(locState, 'intro-location-status')}
           <Button testID="intro-location-button" title="Gunakan lokasi saya" icon="locate-outline" loading={busy} onPress={gps} />
           <View style={s.chips}>{CITIES.map(c => <Tap key={c.name} testID={`intro-city-${c.name.toLowerCase().replaceAll(' ', '-')}`} onPress={() => applyLocation(c.lat, c.lon, c.name)} style={[s.chip, prefs.city === c.name && s.chipOn]}><T size={11} weight="600" color={prefs.city === c.name ? colors.onBrandPrimary : colors.onSurface}>{c.name}</T></Tap>)}</View>
           <Button testID="intro-next-button" title={prefs.location_set ? 'Lanjut' : 'Pilih nanti'} variant="secondary" onPress={next} /></>}
-        {step === 3 && <><T testID="intro-title" size={28} weight="800" style={s.title}>Tentang kamu</T><T muted size={14} style={s.text}>Supaya sapaan & panduan ibadah terasa lebih personal.</T>
+        {step === 3 && <><T testID="intro-title" size={titleSize} weight="800" style={s.title}>Tentang kamu</T><T muted size={bodySize} style={s.text}>Supaya sapaan & panduan ibadah terasa lebih personal.</T>
           <View style={s.genderRow}>{[['pria', 'Laki-laki', 'man-outline'], ['wanita', 'Perempuan', 'woman-outline']].map(([key, label, icon]) => <Tap key={key} testID={`intro-gender-${key}`} onPress={() => setPrefs((p: any) => ({ ...p, gender: key }))} style={[s.genderCard, prefs.gender === key && s.genderOn]} accessibilityState={{ selected: prefs.gender === key }}><Icon name={icon} size={34} color={prefs.gender === key ? colors.onBrandPrimary : colors.onBrandSecondary} /><T weight="700" color={prefs.gender === key ? colors.onBrandPrimary : colors.onSurface}>{label}</T></Tap>)}</View>
           <Button testID="intro-next-button" title={prefs.gender ? 'Lanjut' : 'Lewati dulu'} icon="arrow-forward" onPress={next} /></>}
-        {step === 4 && <><T testID="intro-title" size={28} weight="800" style={s.title}>Salam hangat 💙</T>
+        {step === 4 && <><T testID="intro-title" size={titleSize} weight="800" style={s.title}>Salam hangat 💙</T>
           <Card style={s.letter}><T paper size={14} style={{ lineHeight: 24 }}>“Halo, {prefs.gender === 'wanita' ? 'Ukhti' : prefs.gender === 'pria' ? 'Akhi' : 'Sahabat'}. Azam lahir dari pengalaman sederhana: notifikasi terus datang, sementara azan sering terlewat. Aplikasi ini bukan untuk menghakimi, tapi menemani. Satu jeda kecil setiap hari, insyaAllah jadi kebiasaan baik.”</T><View style={s.sign}><View style={s.avatar}><T weight="800" color={colors.onBrandPrimary}>A</T></View><View><T paper size={12} weight="700">Tim Azam</T><T paper size={10} muted>Dibuat dengan niat baik, untukmu.</T></View></View></Card>
           <Button testID="intro-next-button" title="Lihat cara kerjanya" icon="play-outline" onPress={next} /></>}
-        {step === 5 && <><T testID="intro-title" size={28} weight="800" style={s.title}>Begini cara Azam bekerja</T><T muted size={14} style={s.text}>Buka aplikasi pilihanmu seperti biasa. Saat waktu salat mendekat, layar dijeda sampai kamu selesai salat.</T>
+        {step === 5 && <><T testID="intro-title" size={titleSize} weight="800" style={s.title}>Begini cara Azam bekerja</T><T muted size={bodySize} style={s.text}>Buka aplikasi pilihanmu seperti biasa. Saat waktu salat mendekat, layar dijeda sampai kamu selesai salat.</T>
           {demo === 'done' && <View style={s.feedback}><Icon name="checkmark-circle" size={18} color={colors.success} /><T testID="intro-demo-done" size={12} style={{ flex: 1 }}>Kamu sudah mencoba jeda salat. Di ponsel, ini yang akan muncul di atas aplikasi terpilih.</T></View>}
           <Button testID="intro-demo-button" title={demo === 'done' ? 'Coba lagi' : 'Buka Instagram (demo)'} icon="logo-instagram" onPress={() => setDemo('feed')} variant={demo === 'done' ? 'secondary' : 'primary'} />
           <Button testID="intro-next-button" title="Lanjut" variant={demo === 'done' ? 'primary' : 'secondary'} onPress={next} /></>}
-        {step === 6 && <><T testID="intro-title" size={28} weight="800" style={s.title}>Diingatkan berapa menit sebelum azan?</T><T muted size={14} style={s.text}>Aplikasi terpilih akan dijeda sejak waktu ini hingga kamu mencatat salat.</T>
+        {step === 6 && <><T testID="intro-title" size={titleSize} weight="800" style={s.title}>Diingatkan berapa menit sebelum azan?</T><T muted size={bodySize} style={s.text}>Aplikasi terpilih akan dijeda sejak waktu ini hingga kamu mencatat salat.</T>
           <View style={s.chips}>{[5, 10, 15, 30].map(m => <Tap key={m} testID={`intro-reminder-${m}`} onPress={() => setPrefs((p: any) => ({ ...p, reminder_minutes: m }))} style={[s.minuteChip, prefs.reminder_minutes === m && s.chipOn]}><T size={22} weight="800" color={prefs.reminder_minutes === m ? colors.onBrandPrimary : colors.onSurface}>{m}</T><T size={10} color={prefs.reminder_minutes === m ? colors.onBrandPrimary : colors.muted}>menit</T></Tap>)}</View>
           <Button testID="intro-finish-button" title="Selesai, masuk ke Azam" icon="checkmark" onPress={() => finishIntro(prefs)} /></>}
         {step > 0 && <Tap testID="intro-back-button" onPress={() => setStep(v => v - 1)} style={s.back}><Icon name="arrow-back" size={16} color={colors.muted} /><T size={12} color={colors.muted}>Kembali</T></Tap>}
@@ -88,7 +90,7 @@ export function Intro() {
 const useStyles = makeStyles(c => ({
   page: { flexGrow: 1, paddingHorizontal: 22, gap: 14 }, topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, skip: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' },
   dots: { flexDirection: 'row', gap: 6 }, dot: { flex: 1, height: 5, borderRadius: 3, backgroundColor: c.glass }, dotActive: { backgroundColor: c.brandTertiary }, dotDone: { backgroundColor: c.brandSecondary },
-  body: { gap: 14, flexGrow: 1 }, hero: { width: '100%', height: 168, borderRadius: 24, resizeMode: 'cover' }, title: { letterSpacing: -0.8 }, text: { lineHeight: 22 }, center: { textAlign: 'center' },
+  body: { gap: 12, flex: 1, justifyContent: 'flex-end' }, heroWrap: { flex: 1, borderRadius: 26, overflow: 'hidden', backgroundColor: c.glass }, hero: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', resizeMode: 'cover' }, title: { letterSpacing: -0.8 }, text: { lineHeight: 21 }, center: { textAlign: 'center' },
   feedback: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, chip: { minHeight: 40, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 14, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, chipOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary },
   minuteChip: { flex: 1, minHeight: 74, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.glass, borderWidth: 1, borderColor: c.border },

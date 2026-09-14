@@ -1,7 +1,7 @@
 import os
 import secrets
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -9,9 +9,12 @@ from uuid import uuid4
 import httpx
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from hijridate import Gregorian, Hijri
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 load_dotenv(Path(__file__).parent / '.env')
 client = AsyncIOMotorClient(os.environ['MONGO_URL'])
@@ -27,6 +30,7 @@ async def lifespan(_app):
     await db.sessions.create_index('expires_at', expireAfterSeconds=0)
     await db.logs.create_index([('user_id', 1), ('date', 1), ('prayer', 1)], unique=True)
     await db.cache.create_index('key', unique=True)
+    await db.alarms.create_index([('user_id', 1), ('id', 1)], unique=True)
     yield
     await http.aclose()
     client.close()
@@ -34,6 +38,14 @@ async def lifespan(_app):
 
 app = FastAPI(title='Azam API', lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(_request, exc: RequestValidationError):
+    first = exc.errors()[0] if exc.errors() else {}
+    message = str(first.get('msg', 'Periksa isian Anda.')).replace('Value error, ', '')
+    return JSONResponse(status_code=422, content={'detail': message})
+
 router = APIRouter(prefix='/api')
 
 
@@ -84,9 +96,11 @@ class Settings(BaseModel):
     custom_apps: list[CustomApp] = Field(default_factory=list, max_length=60)
     gender: Literal['', 'pria', 'wanita'] = ''
     reminder_minutes: Literal[5, 10, 15, 30] = 10
-    ambient: Literal['none', 'rain', 'cat'] = 'none'
+    ambient: str = Field(default='none', max_length=40)
     rain_volume: float = Field(default=0.5, ge=0, le=1)
     cat_volume: float = Field(default=0.5, ge=0, le=1)
+    adhan_sound: bool = True
+    hajj_done: list[str] = Field(default_factory=list, max_length=120)
     last_surah: int = Field(default=1, ge=1, le=114)
     last_verse: int = Field(default=1, ge=1, le=286)
 
@@ -168,6 +182,124 @@ async def save_settings(body: Settings, user=Depends(current_user)):
         raise HTTPException(422, 'Zona waktu tidak valid.')
     await db.settings.update_one({'user_id': user['user_id']}, {'$set': body.model_dump()}, upsert=True)
     return body
+
+
+# ---- Alarms: date + time + label, once/daily/weekly, on/off, snooze. Soft-deleted, never destroyed. ----
+class AlarmInput(BaseModel):
+    label: str = Field(default='Bangun dzikir', min_length=1, max_length=60)
+    time: str = Field(default='04:30', pattern=r'^([01]\d|2[0-3]):[0-5]\d$')
+    repeat: Literal['once', 'daily', 'weekly'] = 'once'
+    date: str | None = Field(default=None, pattern=r'^\d{4}-\d{2}-\d{2}$')
+    weekdays: list[int] = Field(default_factory=list, max_length=7)
+    enabled: bool = True
+    phrase: str = Field(default='Alhamdulillah', min_length=1, max_length=80)
+    snooze_minutes: Literal[5, 10, 15] = 5
+
+    @model_validator(mode='after')
+    def check_schedule(self):
+        if self.repeat == 'once':
+            if not self.date:
+                raise ValueError('Pilih tanggal untuk alarm sekali.')
+            try:
+                datetime.strptime(self.date, '%Y-%m-%d')
+            except ValueError:
+                raise ValueError('Tanggal tidak valid.')
+        if self.repeat == 'weekly':
+            self.weekdays = sorted({d for d in self.weekdays if 0 <= d <= 6})
+            if not self.weekdays:
+                raise ValueError('Pilih minimal satu hari untuk alarm mingguan.')
+        return self
+
+
+class Alarm(AlarmInput):
+    id: str
+    created_at: str
+    updated_at: str
+
+
+# ---- Islamic calendar: upcoming observances computed with the Umm al-Qura calendar (hijridate). ----
+ISLAMIC_EVENTS = [
+    (1, 1, 'Tahun Baru Hijriah', 'Awal tahun baru Islam. Waktu bermuhasabah dan memperbarui niat.', 'moon-outline'),
+    (1, 10, 'Hari Asyura', 'Puasa sunnah 9–10 Muharram menghapus dosa setahun yang lalu.', 'water-outline'),
+    (3, 12, 'Maulid Nabi Muhammad ﷺ', 'Mengenang kelahiran Rasulullah ﷺ dengan salawat dan meneladani akhlaknya.', 'heart-outline'),
+    (7, 27, 'Isra Mi’raj', 'Perjalanan malam Rasulullah ﷺ dan turunnya perintah salat lima waktu.', 'rocket-outline'),
+    (8, 15, 'Nisfu Sya’ban', 'Malam pertengahan Sya’ban, perbanyak doa dan istighfar.', 'sparkles-outline'),
+    (9, 1, 'Awal Ramadan', 'Bulan puasa dimulai. Marhaban ya Ramadan!', 'sunny-outline'),
+    (9, 17, 'Nuzulul Qur’an', 'Peringatan turunnya Al-Qur’an. Perbanyak tilawah.', 'book-outline'),
+    (9, 21, 'Sepuluh Malam Terakhir', 'Berburu Lailatul Qadar: iktikaf, qiyam, dan doa.', 'star-outline'),
+    (10, 1, 'Idul Fitri', 'Hari raya kemenangan setelah sebulan berpuasa. Taqabbalallahu minna wa minkum.', 'gift-outline'),
+    (12, 8, 'Hari Tarwiyah', 'Jemaah haji bergerak menuju Mina. Sunnah puasa bagi yang tidak berhaji.', 'walk-outline'),
+    (12, 9, 'Hari Arafah', 'Puncak haji. Puasa Arafah menghapus dosa dua tahun.', 'flag-outline'),
+    (12, 10, 'Idul Adha', 'Hari raya kurban, meneladani keikhlasan Nabi Ibrahim.', 'ribbon-outline'),
+    (12, 11, 'Hari Tasyrik', 'Tiga hari (11–13 Dzulhijjah) penyembelihan kurban dan takbir.', 'flame-outline'),
+]
+HIJRI_MONTHS = ['Muharram', 'Safar', 'Rabiul Awal', 'Rabiul Akhir', 'Jumadil Awal', 'Jumadil Akhir', 'Rajab', 'Sya’ban', 'Ramadan', 'Syawal', 'Dzulkaidah', 'Dzulhijjah']
+
+
+@router.get('/islamic-events', response_model=Data)
+async def islamic_events(start: str | None = None, days: int = 400):
+    """Upcoming observances from `start` (YYYY-MM-DD, default today) across the next `days` days."""
+    try:
+        origin = datetime.strptime(start, '%Y-%m-%d').date() if start else datetime.now(timezone.utc).date()
+    except ValueError:
+        raise HTTPException(422, 'Tanggal tidak valid.')
+    days = max(1, min(days, 800))
+    hijri_year = Gregorian(origin.year, origin.month, origin.day).to_hijri().year
+    events = []
+    for year in (hijri_year - 1, hijri_year, hijri_year + 1):
+        for month, day, name, description, icon in ISLAMIC_EVENTS:
+            try:
+                g = Hijri(year, month, day).to_gregorian()
+            except (ValueError, OverflowError):
+                continue
+            g_date = date(g.year, g.month, g.day)
+            offset = (g_date - origin).days
+            if -1 <= offset <= days:
+                events.append({'key': f'{year}-{month}-{day}', 'name': name, 'description': description, 'icon': icon, 'date': g_date.isoformat(),
+                               'hijri': f'{day} {HIJRI_MONTHS[month - 1]} {year} H', 'days_until': offset})
+    events.sort(key=lambda e: e['date'])
+    return Data(data=events)
+
+
+def alarm_query(user, alarm_id=None):
+    query = {'user_id': user['user_id'], 'deleted_at': None}
+    if alarm_id:
+        query['id'] = alarm_id
+    return query
+
+
+@router.get('/alarms', response_model=Data)
+async def list_alarms(user=Depends(current_user)):
+    docs = await db.alarms.find(alarm_query(user), {'_id': 0, 'user_id': 0, 'deleted_at': 0}).sort('time', 1).to_list(50)
+    return Data(data=[Alarm(**doc).model_dump() for doc in docs])
+
+
+@router.post('/alarms', response_model=Alarm)
+async def create_alarm(body: AlarmInput, user=Depends(current_user)):
+    if await db.alarms.count_documents(alarm_query(user)) >= 20:
+        raise HTTPException(422, 'Maksimal 20 alarm. Hapus alarm lama terlebih dahulu.')
+    now = datetime.now(timezone.utc).isoformat()
+    alarm = Alarm(id=f'alarm_{uuid4().hex}', created_at=now, updated_at=now, **body.model_dump())
+    await db.alarms.insert_one({**alarm.model_dump(), 'user_id': user['user_id'], 'deleted_at': None})
+    return alarm
+
+
+@router.put('/alarms/{alarm_id}', response_model=Alarm)
+async def update_alarm(alarm_id: str, body: AlarmInput, user=Depends(current_user)):
+    existing = await db.alarms.find_one(alarm_query(user, alarm_id), {'_id': 0})
+    if not existing:
+        raise HTTPException(404, 'Alarm tidak ditemukan.')
+    alarm = Alarm(id=alarm_id, created_at=existing['created_at'], updated_at=datetime.now(timezone.utc).isoformat(), **body.model_dump())
+    await db.alarms.update_one(alarm_query(user, alarm_id), {'$set': alarm.model_dump()})
+    return alarm
+
+
+@router.delete('/alarms/{alarm_id}', response_model=Data)
+async def delete_alarm(alarm_id: str, user=Depends(current_user)):
+    result = await db.alarms.update_one(alarm_query(user, alarm_id), {'$set': {'deleted_at': datetime.now(timezone.utc).isoformat()}})
+    if not result.matched_count:
+        raise HTTPException(404, 'Alarm tidak ditemukan.')
+    return Data(data={'ok': True})
 
 
 # Import route registration after shared database and auth definitions.

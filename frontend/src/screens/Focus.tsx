@@ -8,13 +8,15 @@ import { Badge, Button, Card, Icon, Page, T, Tap } from '@/src/components/ui';
 import { AnimatedCat } from '@/src/components/AnimatedCat';
 import { PRAYER_ICONS } from '@/src/components/SocialDemo';
 import { APP_CATEGORIES } from '@/src/components/FormSheets';
+import { describeRepeat, showTime, soonest, untilText } from '@/src/alarms';
 
 export const APPS: { name: string; icon: string; color: string }[] = [
   { name: 'Instagram', icon: 'logo-instagram', color: 'instagram' }, { name: 'TikTok', icon: 'logo-tiktok', color: 'tiktok' }, { name: 'YouTube', icon: 'logo-youtube', color: 'youtube' },
   { name: 'X', icon: 'logo-twitter', color: 'x' }, { name: 'Facebook', icon: 'logo-facebook', color: 'facebook' }, { name: 'Chrome', icon: 'logo-chrome', color: 'chrome' }, { name: 'Game', icon: 'game-controller', color: 'game' },
 ];
 export function Focus() {
-  const { settings, updateSettings, setModal, go } = useApp(); const s = useStyles(); const { colors } = useTheme();
+  const { settings, updateSettings, setModal, go, alarms, now } = useApp(); const s = useStyles(); const { colors } = useTheme();
+  const nextAlarm = soonest(alarms.data, now); const activeAlarms = (alarms.data || []).filter((a: any) => a.enabled).length;
   const togglePrayer = (name: string) => updateSettings({ blocked_prayers: settings.blocked_prayers.includes(name) ? settings.blocked_prayers.filter((p: string) => p !== name) : [...settings.blocked_prayers, name] });
   const toggleApp = (name: string) => updateSettings({ blocked_apps: settings.blocked_apps.includes(name) ? settings.blocked_apps.filter((p: string) => p !== name) : [...settings.blocked_apps, name] });
   const removeApp = (name: string) => updateSettings({ custom_apps: (settings.custom_apps || []).filter((a: any) => a.name !== name), blocked_apps: settings.blocked_apps.filter((p: string) => p !== name) });
@@ -49,9 +51,9 @@ export function Focus() {
       <Button testID="blocker-demo-button" title="Coba jeda salat sekarang" icon="play" onPress={() => setModal({ type: 'blocker', prayer: 'Magrib' })} />
       <T size={10} muted style={{ textAlign: 'center' }}>Pemblokiran sistem penuh hadir pada versi native. Di Expo, ini demonstrasi berlabel.</T>
     </Card>
-    <Card style={s.card}><View style={s.row}><View style={s.alarmArt}><AnimatedCat size={84} /></View><View style={{ flex: 1 }}><T size={16} weight="700">Alarm bangun dzikir</T><T size={11} muted>Ucapkan dzikir, tahan tombol untuk mematikan.</T></View></View>
-      <Tap testID="alarm-edit-button" style={s.alarmRow} onPress={() => setModal({ type: 'alarm-settings' })}><View><T testID="alarm-time" size={40} weight="800" style={{ letterSpacing: -1.5 }}>{settings.alarm_time.replace(':', '.')}</T><T size={12} color={colors.onBrandSecondary}>“{settings.alarm_phrase}”</T></View><View style={s.editPill}><Icon name="create-outline" size={16} color={colors.onBrandSecondary} /><T size={11} weight="700" color={colors.onBrandSecondary}>Ubah</T></View></Tap>
-      <Button testID="alarm-demo-button" title="Coba alarm" variant="secondary" icon="alarm-outline" onPress={() => setModal({ type: 'alarm' })} />
+    <Card style={s.card}><View style={s.row}><View style={s.alarmArt}><AnimatedCat size={84} /></View><View style={{ flex: 1 }}><T size={16} weight="700">Alarm bangun dzikir</T><T size={11} muted>{activeAlarms ? `${activeAlarms} alarm aktif · berbunyi lewat notifikasi HP` : 'Atur tanggal & jam, alarm berbunyi di HP-mu.'}</T></View></View>
+      <Tap testID="alarm-edit-button" style={s.alarmRow} onPress={() => nextAlarm ? setModal({ type: 'alarm-form', alarm: nextAlarm.alarm, title: 'Ubah alarm' }) : setModal({ type: 'alarm-form' })}><View><T testID="alarm-time" size={40} weight="800" style={{ letterSpacing: -1.5 }}>{nextAlarm ? showTime(nextAlarm.alarm.time) : '--.--'}</T><T size={12} color={colors.onBrandSecondary}>{nextAlarm ? `${nextAlarm.alarm.label} · ${describeRepeat(nextAlarm.alarm)} · dalam ${untilText(nextAlarm.at, now)}` : 'Belum ada alarm berikutnya'}</T></View><View style={s.editPill}><Icon name={nextAlarm ? 'create-outline' : 'add'} size={16} color={colors.onBrandSecondary} /><T size={11} weight="700" color={colors.onBrandSecondary}>{nextAlarm ? 'Ubah' : 'Tambah'}</T></View></Tap>
+      <View style={s.chipRow}><Button testID="alarm-manage-button" title="Kelola alarm" icon="alarm-outline" style={{ flex: 1 }} onPress={() => go('alarms')} /><Button testID="alarm-demo-button" title="Coba alarm" variant="secondary" icon="play-outline" style={{ flex: 1 }} onPress={() => setModal({ type: 'alarm' })} /></View>
     </Card>
     <Tap testID="focus-ambient-button" style={s.proCard} onPress={() => setModal({ type: 'ambient' })}><View style={[s.proArt, { backgroundColor: colors.brandSecondary, alignItems: 'center', justifyContent: 'center' }]}><Icon name="rainy-outline" size={28} color={colors.onBrandSecondary} /></View><View style={{ flex: 1, gap: 4 }}><Badge text="RAMAH ADHD" icon="sparkles-outline" /><T size={15} weight="700">Suasana tenang saat membaca</T><T size={11} muted>Atur volume hujan & kucing — juga tersedia di pembaca Al-Qur’an.</T></View><Icon name="chevron-forward" color={colors.muted} /></Tap>
     <Tap testID="focus-pro-button" style={s.proCard} onPress={() => go('pro')}><LinearGradient colors={[colors.goldSoft, colors.transparent]} style={s.shade} /><ImageBackground source={IMG.hajj} style={s.proArt} imageStyle={{ borderRadius: 20 }} /><View style={{ flex: 1, gap: 4 }}><Badge text="AZAM PRO · PRATINJAU" gold icon="sparkles" /><T size={15} weight="700">Panduan Haji & Umroh, suara premium</T><T size={11} muted>Jelajahi fitur lanjutan tanpa pembayaran.</T></View><Icon name="arrow-forward" color={colors.goldText} /></Tap>
