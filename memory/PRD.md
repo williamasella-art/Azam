@@ -57,6 +57,21 @@ Indonesian Muslim companion app: reduce distracting app use at prayer times, wak
 - Final screenshot regression passed: check-in increases count, undo restores it, dark theme/navigation stable. Simulated after-Isya time confirms actual next-day prayer request and `Subuh · besok` label (not today's repeated Fajr). TypeScript compilation still passes.
 - Delivery screenshots: `/tmp/azam-delivery-light.jpg`, `/tmp/azam-delivery-dark.jpg`; browser console `/root/.emergent/automation_output/20260914_114900/console_20260914_114900.log`.
 
+## Implemented — 2026-09-14 (session 2: GitHub import & "lebih matang" polish)
+- Imported repo state verified; fixed broken bundle (src/assets.ts used `../../assets`, should be `../assets`) and cleared stale Metro caches.
+- Typography switched to Plus Jakarta Sans (static Regular/Medium/SemiBold/Bold/ExtraBold, `assets/fonts`), Poppins removed; `fontFor()` in theme.ts maps weights.
+- App identity: icon.png / adaptive-icon.png / splash-image.png / favicon regenerated from the Gemini logo; app.json name "Azam", navy #08223B splash/adaptive background.
+- Home hero: `SkyLife` layer with gliding, wing-flapping birds and twinkling stars over the illustration; streak pill uses breathing `PulseFlame`.
+- Buttons: `Tap` now spring-animated (scale + dim on press) via Reanimated `AnimatedPressable` — applies to every interactive element.
+- Qibla: critically-damped spring glide for dial and needle, low-pass filtered sensor heading, Kaaba marker stays upright, success haptic when aligned, drag-to-rotate gesture on the dial in simulation mode (plus slider).
+- Share story: new `ShareComposer` (4 image backgrounds, 3 tints, 4 captions, stats/name toggles, animated 4:5 card with SkyLife) for streak, check-in success and verse sharing.
+- Tab label "Blokir" → "Blocker". Intro-seen flag also marks the account onboarded so the guide isn't repeated after login.
+- Testing agent iteration 2: 15/15 backend tests, all frontend flows verified (`/app/test_reports/iteration_2.json`).
+
+## Backlog additions
+- Migrate web `shadow*` → `boxShadow` and `pointerEvents` prop → style (web warnings only).
+- Real Pro sounds (thunder/waves/campfire/birds) when payment is added; RevenueCat deferred by user choice.
+
 ## Prioritized backlog
 ### P0 — Native core integration (explicitly deferred)
 - Actual Android app interception/usage/accessibility permissions with strict user consent; iOS FamilyControls/ManagedSettings entitlement path.

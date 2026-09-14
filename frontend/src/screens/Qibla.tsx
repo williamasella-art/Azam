@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, View, useWindowDimensions } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
 import Slider from '@react-native-community/slider';
 import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
 import { useQuery } from '@tanstack/react-query';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useApp } from '@/src/AppContext';
 import { api } from '@/src/api';
 import { makeStyles, useTheme } from '@/src/theme';
@@ -13,63 +15,81 @@ import { Badge, Button, Card, Icon, Page, Status, T, Tap } from '@/src/component
 
 /** Unwraps a compass heading so the animation always takes the shortest path. */
 function unwrap(previous: number, next: number) { let delta = ((next - previous + 540) % 360) - 180; if (delta < -180) delta += 360; return previous + delta; }
+// Critically damped spring: glides to the new heading without jitter or overshoot.
+const GLIDE = { damping: 28, stiffness: 110, mass: 1, overshootClamping: true, restDisplacementThreshold: 0.05, restSpeedThreshold: 0.05 };
 
 export function Qibla() {
   const { settings, setModal } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { width } = useWindowDimensions();
   const [heading, setHeading] = useState<number | null>(null); const [accuracy, setAccuracy] = useState(0); const [simulated, setSimulated] = useState(0);
   const query = useQuery({ queryKey: ['qibla', settings.latitude, settings.longitude], queryFn: () => api(`/qibla?latitude=${settings.latitude}&longitude=${settings.longitude}`).then(r => r.data) });
   const bearing = query.data?.bearing || 0;
-  const dial = useSharedValue(0); const needle = useSharedValue(0); const pulse = useSharedValue(1); const last = useRef(0);
+  const dial = useSharedValue(0); const needle = useSharedValue(0); const pulse = useSharedValue(1); const last = useRef(0); const smoothed = useRef<number | null>(null);
   const sensor = heading !== null;
   const current = sensor ? heading : simulated;
   useEffect(() => {
     const target = unwrap(last.current, current); last.current = target;
-    dial.value = sensor ? withTiming(-target, { duration: 260, easing: Easing.out(Easing.cubic) }) : withSpring(-target, { damping: 16, stiffness: 70, mass: 0.8 });
-    needle.value = sensor ? withTiming(bearing - target, { duration: 260, easing: Easing.out(Easing.cubic) }) : withSpring(bearing - target, { damping: 16, stiffness: 70, mass: 0.8 });
-  }, [current, bearing, sensor, dial, needle]);
+    dial.value = withSpring(-target, GLIDE);
+    needle.value = withSpring(bearing - target, GLIDE);
+  }, [current, bearing, dial, needle]);
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null; let cancelled = false;
     (async () => {
       if (Platform.OS === 'web') return;
       const permission = await Location.getForegroundPermissionsAsync();
       if (!permission.granted) return;
-      const sub = await Location.watchHeadingAsync(value => { if (!cancelled) { setHeading(value.trueHeading >= 0 ? value.trueHeading : value.magHeading); setAccuracy(value.accuracy); } });
+      const sub = await Location.watchHeadingAsync(value => {
+        if (cancelled) return;
+        const raw = value.trueHeading >= 0 ? value.trueHeading : value.magHeading;
+        // Low-pass filter on the shortest arc: removes sensor noise while staying responsive.
+        const previous = smoothed.current ?? raw;
+        const next = (unwrap(previous, raw) - previous) * 0.3 + previous;
+        smoothed.current = ((next % 360) + 360) % 360;
+        if (Math.abs(unwrap(previous, raw) - previous) > 0.25 || smoothed.current !== previous) setHeading(smoothed.current);
+        setAccuracy(value.accuracy);
+      });
       if (cancelled) sub.remove(); else subscription = sub;
     })().catch(() => setHeading(null));
     return () => { cancelled = true; subscription?.remove(); };
   }, [settings.location_set, settings.latitude, settings.longitude]);
   const delta = Math.abs(((bearing - current + 540) % 360) - 180);
   const aligned = delta <= 5 && (!sensor || accuracy >= 2);
-  useEffect(() => { pulse.value = withSpring(aligned ? 1.06 : 1, { damping: 8 }); }, [aligned, pulse]);
+  useEffect(() => { pulse.value = withSpring(aligned ? 1.06 : 1, { damping: 8 }); if (aligned && Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); }, [aligned, pulse]);
   const dialStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${dial.value}deg` }] }));
   const needleStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${needle.value}deg` }] }));
+  const uprightStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${-needle.value}deg` }] }));
   const ringStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
   const size = Math.min(width - 60, 330); const half = size / 2;
+  // Drag anywhere on the dial to spin it in simulation mode (no sensor).
+  const spinStart = useRef({ angle: 0, value: 0 }); const simRef = useRef(0); simRef.current = simulated;
+  const angleOf = (x: number, y: number) => (Math.atan2(y - half, x - half) * 180) / Math.PI;
+  const spin = useMemo(() => Gesture.Pan().enabled(!sensor).runOnJS(true)
+    .onBegin(e => { spinStart.current = { angle: angleOf(e.x, e.y), value: simRef.current }; })
+    .onUpdate(e => { setSimulated((((spinStart.current.value + angleOf(e.x, e.y) - spinStart.current.angle) % 360) + 360) % 360); }), [sensor, half]); // eslint-disable-line react-hooks/exhaustive-deps
   return <Page title="Arah kiblat" subtitle="Satu arah, menyatukan hati.">
     <Tap testID="qibla-location-button" style={s.location} onPress={() => setModal({ type: 'location' })}><Icon name="location" color={colors.brandTertiary} size={16} /><T size={13} weight="700">{settings.city}</T><Icon name="chevron-down" color={colors.muted} size={15} /></Tap>
     {query.isLoading || query.error ? <Status loading={query.isLoading} error={query.error} retry={query.refetch} /> : <>
       <View style={s.compassWrap}><Badge text={sensor ? 'KOMPAS PERANGKAT' : 'MODE SIMULASI · TANPA SENSOR'} icon="compass-outline" />
-        <View testID="qibla-compass" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        <GestureDetector gesture={spin}><View testID="qibla-compass" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
           <Animated.View style={[s.ring, { width: size, height: size, borderRadius: half, borderColor: aligned ? colors.success : colors.border }, ringStyle]} />
           <Animated.View style={[{ position: 'absolute', width: size, height: size }, dialStyle]}>
             <Svg width={size} height={size} viewBox="0 0 340 340"><Circle cx="170" cy="170" r="160" fill={colors.solid} /><Circle cx="170" cy="170" r="130" fill={colors.surfaceSecondary} />
               {Array.from({ length: 72 }, (_, i) => <Line key={i} x1="170" y1={i % 6 === 0 ? '18' : '22'} x2="170" y2={i % 6 === 0 ? '36' : '30'} transform={`rotate(${i * 5} 170 170)`} stroke={i % 18 === 0 ? colors.brandTertiary : i % 6 === 0 ? colors.onSurfaceTertiary : colors.borderStrong} strokeWidth={i % 6 === 0 ? 2.5 : 1} strokeLinecap="round" />)}
-              {[['U', 170, 70], ['T', 275, 176], ['S', 170, 282], ['B', 65, 176]].map(([label, x, y]) => <SvgText key={String(label)} x={x} y={y} fill={label === 'U' ? colors.brandTertiary : colors.onSurfaceTertiary} fontSize="18" fontWeight="700" textAnchor="middle" fontFamily="Poppins-Bold">{label}</SvgText>)}
+              {[['U', 170, 70], ['T', 275, 176], ['S', 170, 282], ['B', 65, 176]].map(([label, x, y]) => <SvgText key={String(label)} x={x} y={y} fill={label === 'U' ? colors.brandTertiary : colors.onSurfaceTertiary} fontSize="18" fontWeight="700" textAnchor="middle" fontFamily="PlusJakartaSans-Bold">{label}</SvgText>)}
               <G>{Array.from({ length: 8 }, (_, i) => <Circle key={i} cx="170" cy="120" r="2" fill={colors.muted} transform={`rotate(${i * 45 + 22.5} 170 170)`} />)}</G>
             </Svg>
           </Animated.View>
           <Animated.View style={[{ position: 'absolute', width: size, height: size, alignItems: 'center' }, needleStyle]}>
-            <View style={[s.kaabaWrap, { top: size * 0.10 }]}><Image source={IMG.kaaba} style={s.kaaba} /></View>
+            <Animated.View style={[s.kaabaWrap, { top: size * 0.10, borderColor: aligned ? colors.success : colors.gold }, uprightStyle]}><Image source={IMG.kaaba} style={s.kaaba} /></Animated.View>
             <View style={[s.needle, { top: size * 0.10 + 52, height: half - size * 0.10 - 52, backgroundColor: aligned ? colors.success : colors.brandTertiary }]} />
             <View style={[s.needleTail, { top: half, height: half * 0.36 }]} />
           </Animated.View>
           <View style={s.hub}><Icon name="navigate" size={18} color={colors.onBrandPrimary} /></View>
-        </View>
+        </View></GestureDetector>
         <T testID="qibla-bearing" size={40} weight="800" style={{ letterSpacing: -1.5 }}>{bearing.toFixed(1)}<T size={26} color={colors.brandTertiary}>°</T></T>
         <T testID="qibla-sensor-status" size={13} weight="600" color={aligned ? colors.success : colors.onBrandSecondary}>{aligned ? 'Kamu menghadap kiblat ✓' : sensor ? 'Putar perangkat mengikuti Ka’bah' : `Kiblat ${bearing.toFixed(0)}° searah jarum jam dari utara`}</T>
         <T size={11} muted>{query.data.distance_km.toLocaleString('id-ID')} km menuju Ka’bah</T>
       </View>
-      {!sensor && <Card style={s.sim}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icon name="game-controller-outline" size={18} color={colors.onBrandSecondary} /><T size={13} weight="700">Coba putar kompas</T><View style={{ flex: 1 }} /><T testID="qibla-simulated-heading" size={12} weight="700" color={colors.onBrandSecondary}>{Math.round(simulated)}°</T></View>
+      {!sensor && <Card style={s.sim}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icon name="hand-left-outline" size={18} color={colors.onBrandSecondary} /><T size={13} weight="700">Geser kompas atau slider</T><View style={{ flex: 1 }} /><T testID="qibla-simulated-heading" size={12} weight="700" color={colors.onBrandSecondary}>{Math.round(simulated)}°</T></View>
         <Slider testID="qibla-simulation-slider" style={{ height: 40 }} minimumValue={0} maximumValue={359} step={1} value={simulated} onValueChange={setSimulated} minimumTrackTintColor={colors.brandPrimary} maximumTrackTintColor={colors.borderStrong} thumbTintColor={colors.brandTertiary} accessibilityLabel="Simulasi arah perangkat" />
         <T size={11} muted>Sensor kompas tidak tersedia di pratinjau ini. Geser untuk melihat animasi; di ponsel, kompas mengikuti gerakan perangkat.</T></Card>}
       {sensor && <Card style={s.sim}><Icon name="information-circle-outline" color={colors.onBrandSecondary} /><T size={12} muted>Letakkan ponsel mendatar, jauhi benda logam, lalu gerakkan membentuk angka delapan untuk kalibrasi.</T>{accuracy < 2 && <T size={11} color={colors.warning}>Akurasi sensor rendah. Kalibrasikan sebelum mengikuti arah.</T>}</Card>}

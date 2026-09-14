@@ -46,5 +46,5 @@ export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.Name
 }
 export const fontFor = (weight: string | number = '400') => {
   const w = Number(weight) || (weight === 'bold' ? 700 : 400);
-  return w >= 800 ? 'Poppins-ExtraBold' : w >= 700 ? 'Poppins-Bold' : w >= 600 ? 'Poppins-SemiBold' : w >= 500 ? 'Poppins-Medium' : 'Poppins-Regular';
+  return w >= 800 ? 'PlusJakartaSans-ExtraBold' : w >= 700 ? 'PlusJakartaSans-Bold' : w >= 600 ? 'PlusJakartaSans-SemiBold' : w >= 500 ? 'PlusJakartaSans-Medium' : 'PlusJakartaSans-Regular';
 };

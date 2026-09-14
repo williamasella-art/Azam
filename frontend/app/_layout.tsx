@@ -14,8 +14,8 @@ import { useTheme } from '@/src/theme';
 export default function RootLayout() {
   // Prewarm vector icon fonts before rendering, including Expo Go Android.
   const [ready, error] = useFonts({
-    'Poppins-Regular': require('../assets/fonts/Poppins-Regular.ttf'), 'Poppins-Medium': require('../assets/fonts/Poppins-Medium.ttf'),
-    'Poppins-SemiBold': require('../assets/fonts/Poppins-SemiBold.ttf'), 'Poppins-Bold': require('../assets/fonts/Poppins-Bold.ttf'), 'Poppins-ExtraBold': require('../assets/fonts/Poppins-ExtraBold.ttf'),
+    'PlusJakartaSans-Regular': require('../assets/fonts/PlusJakartaSans-Regular.ttf'), 'PlusJakartaSans-Medium': require('../assets/fonts/PlusJakartaSans-Medium.ttf'),
+    'PlusJakartaSans-SemiBold': require('../assets/fonts/PlusJakartaSans-SemiBold.ttf'), 'PlusJakartaSans-Bold': require('../assets/fonts/PlusJakartaSans-Bold.ttf'), 'PlusJakartaSans-ExtraBold': require('../assets/fonts/PlusJakartaSans-ExtraBold.ttf'),
     Amiri: require('../assets/fonts/Amiri.ttf'), ...Ionicons.font, ...Feather.font,
   });
   const { colors } = useTheme();

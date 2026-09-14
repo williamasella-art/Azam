@@ -1,0 +1,43 @@
+{
+  "summary": "Backend regression 15/15 PASSED. Frontend mobile flows (390x844) verified end-to-end after guest login + intro-skip: Home (prayer card, check-in -> share sheet), bottom tabs (tab-focus label='Blocker'), Qibla (bearing 295.2° for Jakarta, compass + simulation slider), Blocker (enable switch, reminder chips, app list, ambient toggles, pro chip, demo modal with demo-hold-button/demo-snooze-button), Al-Qur'an (search, filters, surah reader with translation switch, verse bookmark, back), Progres (streak, calendar, achievements, ShareComposer with 4 templates/3 tints/4 captions/switches/confirm/close), Settings (Pro screen, pro-feature-0 -> Hajj guide with hajj-section-0, dark theme switch, logout). Two low-severity React Native web warnings persist: deprecated shadow* style props and deprecated props.pointerEvents. transformOrigin warning from previous iteration is no longer present.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "Style props (shadow*)",
+        "issue": "Console warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' Recurs from RN web renderer. Search shadowColor/shadowOffset/shadowOpacity/shadowRadius across /app/frontend/src (styles) and migrate to boxShadow for web-compatible styling."
+      },
+      {
+        "component": "pointerEvents prop",
+        "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Grep for pointerEvents={...} on View/Animated.View and move to style.pointerEvents."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_api_core.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional cleanup: migrate deprecated shadow* style props to boxShadow and move pointerEvents into style to silence RN web warnings.",
+    "Consider persisting settings.onboarded=true after intro-finish so that returning users are not redirected back to Intro after guest login (currently intro-skip is needed even when azam-intro-done is set in localStorage; not blocking, both bypass paths work).",
+    "Verify long-press dismissal of blocker demo overlay on a real touch device (web pointer automation cannot reliably fire GestureHandler long-press)."
+  ],
+  "critical_code_review_comments": [
+    "Backend consistently excludes MongoDB _id via projection ({_id:0}) and via response_model — verified via test_mongodb_object_id_not_serialized_in_response.",
+    "All backend endpoints validate inputs via Pydantic Field constraints (lat/lng range, month regex, alarm_time pattern, blocked_prayers Literal) and return meaningful Indonesian error messages.",
+    "Session TTL correctly enforced with Mongo TTL index (expireAfterSeconds=0 on sessions.expires_at); invalid token returns 401.",
+    "Env-driven config: backend uses MONGO_URL/DB_NAME, frontend uses EXPO_PUBLIC_BACKEND_URL — no hardcoded URLs found."
+  ],
+  "updated_files": [
+    "/app/test_reports/iteration_2.json",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "seed_data_creation": "Only ephemeral guest users via POST /api/auth/guest during tests; no persistent seed data written.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Frontend URL: https://quranic-focus-app.preview.emergentagent.com. To reach Home quickly: localStorage.setItem('azam-intro-done','1'); reload; click guest-login-button; if intro re-appears, click intro-skip-button. Blocker prayer chip testIDs are lowercase (blocker-prayer-subuh/zuhur/asar/magrib/isya) not capitalized. All 30+ testIDs from the review request were located and interactive."
+}

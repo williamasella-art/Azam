@@ -5,6 +5,7 @@ import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
 import { BADGES, IMG, LEVEL_COPY } from '@/src/assets';
 import { Badge, Button, Card, Icon, Page, Paper, Section, Status, T, Tap } from '@/src/components/ui';
+import { PulseFlame } from '@/src/components/SkyLife';
 
 export function LevelBadge({ name, size = 96, locked = false, style }: { name: string; size?: number; locked?: boolean; style?: any }) {
   const { colors } = useTheme();
@@ -41,7 +42,7 @@ export function Progress() {
   return <Page title="Progres" subtitle="Bukan sempurna, tetapi terus berusaha." right={<Tap testID="progress-share-button" style={s.headerButton} onPress={() => setModal({ type: 'share-progress' })}><Icon name="share-social" size={18} color={colors.onBrandPrimary} /><T size={12} weight="700" color={colors.onBrandPrimary}>Story</T></Tap>}>
     {progress.isLoading || progress.error ? <Status loading={progress.isLoading} error={progress.error} retry={progress.refetch} /> : <>
       <Card style={s.streakHero}><LinearGradient colors={[colors.solidStrong, colors.pageTop]} style={s.heroBg} />
-        <View style={{ flex: 1, gap: 6 }}><Badge text={level ? `LEVEL ${level.name.toUpperCase()}` : 'MULAI LANGKAH PERTAMA'} gold={!!level} icon="flame" /><View style={s.streakNumber}><T testID="progress-streak-count" size={54} weight="800" color={colors.brandTertiary} style={{ lineHeight: 62, letterSpacing: -2 }}>{data.streak}</T><T size={15} weight="600" style={{ marginBottom: 10 }}>hari streak 🔥</T></View>
+        <View style={{ flex: 1, gap: 6 }}><Badge text={level ? `LEVEL ${level.name.toUpperCase()}` : 'MULAI LANGKAH PERTAMA'} gold={!!level} icon="flame" /><View style={s.streakNumber}><T testID="progress-streak-count" size={54} weight="800" color={colors.brandTertiary} style={{ lineHeight: 62, letterSpacing: -2 }}>{data.streak}</T><View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}><T size={15} weight="600">hari streak</T><PulseFlame size={20} color={colors.gold} /></View></View>
           <T size={11} muted>{nextLevel ? `${Math.max(0, nextLevel.days - data.best)} hari lagi menuju ${nextLevel.name}` : 'Semua tingkatan tercapai. Masya Allah!'}</T></View>
         <LevelBadge name={level?.name || 'Awan'} size={104} locked={!level} /></Card>
       <View style={s.statsRow}>{[[data.total, 'Salat tercatat', 'checkmark-done-circle'], [data.best, 'Streak terbaik', 'trophy'], [data.complete_days, 'Hari lengkap', 'sunny']].map(([value, label, icon]) => <Card key={String(label)} style={s.stat}><Icon name={icon} size={20} color={colors.gold} /><T testID={`stat-${String(label).replaceAll(' ', '-').toLowerCase()}`} size={24} weight="800">{value}</T><T size={9} muted>{label}</T></Card>)}</View>

@@ -3,10 +3,12 @@ import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleProp, T
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { fontFor, makeStyles, useTheme } from '@/src/theme';
 import { useApp } from '@/src/AppContext';
 import { IMG } from '@/src/assets';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function T({ children, size = 14, weight = '400', muted, color, style, arabic, testID, paper, ...rest }: any) {
   const { colors } = useTheme();
@@ -18,9 +20,13 @@ export function Icon({ name, size = 22, color }: { name: any; size?: number; col
   const { colors } = useTheme(); return <Ionicons name={name} size={size} color={color || colors.onSurface} />;
 }
 export function Tap({ children, onPress, style, testID, disabled, haptic = true, ...rest }: { children: React.ReactNode; onPress?: () => void; style?: StyleProp<ViewStyle>; testID: string; disabled?: boolean; haptic?: boolean; [key: string]: any }) {
+  const scale = useSharedValue(1); const dim = useSharedValue(1);
   const press = () => { if (haptic && Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); onPress?.(); };
-  return <Pressable accessibilityRole="button" testID={testID} onPress={press} disabled={disabled} {...rest}
-    style={({ pressed }) => [style, { opacity: disabled ? 0.45 : pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] }]}>{children}</Pressable>;
+  const anim = useAnimatedStyle(() => ({ opacity: disabled ? 0.45 : dim.value, transform: [{ scale: scale.value }] }));
+  return <AnimatedPressable accessibilityRole="button" testID={testID} onPress={press} disabled={disabled} {...rest}
+    onPressIn={() => { scale.value = withSpring(0.94, { damping: 14, stiffness: 320 }); dim.value = withTiming(0.86, { duration: 90 }); }}
+    onPressOut={() => { scale.value = withSpring(1, { damping: 12, stiffness: 260 }); dim.value = withTiming(1, { duration: 160 }); }}
+    style={[style, anim]}>{children}</AnimatedPressable>;
 }
 /** Interactive gradient button. variant: primary (sky gradient) | secondary (glass) | gold | paper | danger */
 export function Button({ title, onPress, testID, variant = 'primary', icon, loading, style, disabled, size = 'md' }: any) {

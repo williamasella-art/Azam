@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, ImageBackground, ScrollView, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -7,10 +7,11 @@ import { makeStyles, useTheme } from '@/src/theme';
 import { IMG } from '@/src/assets';
 import { Badge, Bg, Icon, IconBox, Logo, Paper, Section, Status, T, Tap } from '@/src/components/ui';
 import { PRAYER_ICONS } from '@/src/components/SocialDemo';
+import { PulseFlame, SkyLife } from '@/src/components/SkyLife';
 
 export function Home() {
   const { settings, user, go, prayers, tomorrowPrayers, progress, daily, now, setModal, checkin, checking, read } = useApp();
-  const s = useStyles(); const { colors } = useTheme();
+  const s = useStyles(); const { colors } = useTheme(); const [heroSize, setHeroSize] = useState({ w: 0, h: 0 });
   const timeNow = new Intl.DateTimeFormat('en-GB', { timeZone: prayers.data?.timezone || settings.timezone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
   const list = prayers.data?.prayers || [];
   const upcomingToday = list.find((p: any) => p.time > timeNow.slice(0, 5));
@@ -31,9 +32,10 @@ export function Home() {
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
       <Animated.View entering={FadeInDown.duration(500)} style={s.contentInner}>
         <View style={s.greeting}><View style={{ flex: 1 }}><T muted size={12}>{greet}, {salutation} {user.guest ? '' : user.name.split(' ')[0]}</T><T size={22} weight="800" style={s.greetingTitle}>Assalamu’alaikum ✨</T></View>
-          <Tap testID="home-streak-button" onPress={() => go('progress')} style={s.streak}><LinearGradient colors={[colors.gold, colors.warning]} style={s.streakBg} /><Icon name="flame" size={18} color={colors.goldInk} /><T weight="800" color={colors.goldInk}>{progress.data?.streak ?? 0}</T><T size={10} weight="600" color={colors.goldInk}>hari</T></Tap></View>
-        <ImageBackground source={IMG.heroBirds} style={s.hero} imageStyle={s.heroImage} testID="next-prayer-card">
+          <Tap testID="home-streak-button" onPress={() => go('progress')} style={s.streak}><LinearGradient colors={[colors.gold, colors.warning]} style={s.streakBg} /><PulseFlame size={18} color={colors.goldInk} /><T weight="800" color={colors.goldInk}>{progress.data?.streak ?? 0}</T><T size={10} weight="600" color={colors.goldInk}>hari</T></Tap></View>
+        <ImageBackground source={IMG.heroBirds} style={s.hero} imageStyle={s.heroImage} testID="next-prayer-card" onLayout={e => setHeroSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
           <LinearGradient colors={[colors.transparent, colors.overlay, colors.pageTop]} locations={[0, 0.55, 1]} style={s.heroShade} />
+          {heroSize.w > 0 && <SkyLife width={heroSize.w} height={heroSize.h} birds={3} stars={6} />}
           <View style={s.heroContent}><View style={s.heroEyebrow}><View style={s.dot} /><T size={10} weight="700" color={colors.heroMuted}>SALAT BERIKUTNYA{isTomorrow ? ' · BESOK' : ''}</T></View>
             {nextQuery.isLoading ? <Status loading /> : nextQuery.error ? <Tap testID="prayer-retry-button" onPress={() => nextQuery.refetch()}><T color={colors.heroInk} size={13}>Jadwal belum tersedia. Ketuk untuk mencoba lagi.</T></Tap> : <View style={s.heroRow}>
               <View><T testID="next-prayer-name" size={22} weight="700" color={colors.heroInk}>{next?.name}</T><T testID="next-prayer-time" size={46} weight="800" color={colors.heroInk} style={s.heroTime}>{next?.time.replace(':', '.')}</T></View>

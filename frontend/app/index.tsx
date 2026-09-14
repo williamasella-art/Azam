@@ -21,7 +21,7 @@ import { Hajj, Pro, Settings } from '@/src/screens/Settings';
 const TABS: { key: ScreenName; label: string; icon: string; selected: string }[] = [
   { key: 'home', label: 'Beranda', icon: 'home-outline', selected: 'home' },
   { key: 'qibla', label: 'Kiblat', icon: 'compass-outline', selected: 'compass' },
-  { key: 'focus', label: 'Blokir', icon: 'shield-half-outline', selected: 'shield-half' },
+  { key: 'focus', label: 'Blocker', icon: 'shield-half-outline', selected: 'shield-half' },
   { key: 'quran', label: 'Al-Qur’an', icon: 'book-outline', selected: 'book' },
   { key: 'progress', label: 'Progres', icon: 'flame-outline', selected: 'flame' },
 ];

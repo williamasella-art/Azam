@@ -44,9 +44,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await loadSettings();
     // Apply preferences captured during the pre-login guide (gender, reminder, location).
     const prefs = await storage.getItem<any>(INTRO_PREFS_KEY, null);
-    if (prefs && !settingsRef.current?.onboarded) {
+    const seenIntro = !!(await storage.getItem(INTRO_KEY, false));
+    if ((prefs || seenIntro) && !settingsRef.current?.onboarded) {
       try {
-        const value = await api('/settings', { ...settingsRef.current, ...prefs, onboarded: true }, 'PUT');
+        const value = await api('/settings', { ...settingsRef.current, ...(prefs || {}), onboarded: true }, 'PUT');
         settingsRef.current = value; setSettings(value);
       } catch { /* Settings remain editable from the app. */ }
     }
