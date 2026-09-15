@@ -9,6 +9,7 @@ import { IMG } from '@/src/assets';
 import { PRO_AMBIENTS } from '@/src/ambient';
 import { api, uploadPhoto } from '@/src/api';
 import { LANGUAGES, useI18n } from '@/src/i18n';
+import { startTrialPatch, trialInfo } from '@/src/pro';
 import { Avatar } from '@/src/components/Avatar';
 import { Badge, Button, Card, Icon, IconBox, Page, Section, T, Tap } from '@/src/components/ui';
 
@@ -47,12 +48,14 @@ function ProfilePhoto() {
   </View>;
 }
 export function Settings() {
-  const { user, settings, updateSettings, setModal, go, setShowIntro, lastTab, alarms } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { t } = useI18n();
+  const { user, settings, updateSettings, setModal, go, setShowIntro, lastTab, alarms, notify } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { t } = useI18n();
   const gender = settings.gender === 'wanita' ? t('settings.female') : settings.gender === 'pria' ? t('settings.male') : t('settings.unset');
   const language = LANGUAGES.find(l => l.key === settings.language) || LANGUAGES[0];
   const switchTrack = { false: colors.solidStrong, true: colors.brandPrimary };
+  const trial = trialInfo(settings); const pro = !!settings.pro_preview;
+  const toggleDark = (v: boolean) => { if (!pro) { notify(t('pro.needTrial')); go('pro'); return; } updateSettings({ dark: v }); };
   return <Page title={t('settings.title')} back={lastTab} subtitle={t('settings.subtitle')}>
-    <Card style={s.profile} testID="settings-profile-card"><ProfilePhoto /><View style={{ flex: 1, gap: 2 }}><T size={18} weight="800" testID="settings-user-name">{user.name}</T><T size={11} muted>{user.guest ? t('settings.guest') : user.email}</T><Tap testID="settings-edit-name-button" onPress={() => setModal({ type: 'profile' })} style={s.editName}><Icon name="pencil" size={12} color={colors.onBrandSecondary} /><T size={11} weight="700" color={colors.onBrandSecondary}>{t('settings.editName')}</T></Tap></View><Badge text={settings.pro_preview ? 'PRO PREVIEW' : 'SAHABAT'} gold={settings.pro_preview} /></Card>
+    <Card style={s.profile} testID="settings-profile-card"><ProfilePhoto /><View style={{ flex: 1, gap: 2 }}><T size={18} weight="800" testID="settings-user-name">{user.name}</T><T size={11} muted>{user.guest ? t('settings.guest') : user.email}</T><Tap testID="settings-edit-name-button" onPress={() => setModal({ type: 'profile' })} style={s.editName}><Icon name="pencil" size={12} color={colors.onBrandSecondary} /><T size={11} weight="700" color={colors.onBrandSecondary}>{t('settings.editName')}</T></Tap></View><Badge text={pro ? `PRO · ${trial.daysLeft} ${t('common.days').toUpperCase()}` : 'SAHABAT'} gold={pro} /></Card>
     <Tap testID="settings-pro-button" style={s.proBanner} onPress={() => go('pro')}><ImageBackground source={IMG.heroBirds} style={s.proBg} imageStyle={{ borderRadius: 26 }}><LinearGradient colors={[colors.heroShade, colors.transparent]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={s.proShade} /><View style={{ flex: 1, gap: 8, padding: 20, maxWidth: '72%' }}><Badge text="AZAM PRO" gold icon="sparkles" light /><T size={19} weight="800" color={colors.heroInk}>{t('settings.proBanner')}</T><T size={11} color={colors.goldText}>{t('settings.proLink')}</T></View></ImageBackground></Tap>
     <View style={s.group}><Section title={t('settings.worship')} /><Card style={s.groupCard}>
       <SettingRow testID="settings-location-button" icon="location-outline" title={t('settings.location')} value={`${settings.city} · Kemenag RI`} onPress={() => setModal({ type: 'location' })} />
@@ -64,8 +67,9 @@ export function Settings() {
       <View style={s.settingRow}><IconBox name="people-outline" size={40} icon={19} /><View style={{ flex: 1 }}><T size={13} weight="600">{t('settings.gender')}</T><T size={10} muted>{gender}</T></View><View style={{ flexDirection: 'row', gap: 6 }}>{[['pria', 'man'], ['wanita', 'woman']].map(([key, icon]) => <Tap key={key} testID={`settings-gender-${key}`} onPress={() => updateSettings({ gender: key })} style={[s.genderBtn, settings.gender === key && s.genderOn]}><Icon name={icon} size={18} color={settings.gender === key ? colors.onBrandPrimary : colors.muted} /></Tap>)}</View></View>
     </Card></View>
     <View style={s.group}><Section title={t('settings.display')} /><Card style={s.groupCard}>
+      <View style={s.settingRow}><IconBox name="person-circle-outline" size={40} icon={19} /><View style={{ flex: 1 }}><T size={13} weight="600">{t('settings.homePhoto')}</T><T size={10} muted>{!user.photo_path ? t('settings.homePhotoNeed') : settings.home_photo ? t('settings.homePhotoOn') : t('settings.homePhotoOff')}</T></View><Switch testID="settings-home-photo-switch" value={!!settings.home_photo && !!user.photo_path} disabled={!user.photo_path} onValueChange={(v) => updateSettings({ home_photo: v })} trackColor={switchTrack} thumbColor={colors.white} ios_backgroundColor={colors.solidStrong} /></View>
       <SettingRow testID="settings-language-button" icon="language-outline" title={t('settings.language')} value={`${language.native} · ${language.label}`} onPress={() => setModal({ type: 'language' })}><View style={s.langPill}><T size={10} weight="800" color={colors.onBrandSecondary}>{language.flag}</T></View></SettingRow>
-      <View style={s.settingRow}><IconBox name="moon-outline" size={40} icon={19} /><View style={{ flex: 1 }}><T size={13} weight="600">{t('settings.dark')}</T><T size={10} muted>{t('settings.darkSub')}</T></View><Switch testID="settings-dark-theme-switch" value={settings.dark} onValueChange={(v) => updateSettings({ dark: v, pro_preview: v || settings.pro_preview })} trackColor={switchTrack} thumbColor={colors.white} ios_backgroundColor={colors.solidStrong} /></View>
+      <View style={s.settingRow}><IconBox name="moon-outline" size={40} icon={19} bg={pro ? undefined : colors.goldSoft} color={pro ? undefined : colors.goldText} /><View style={{ flex: 1 }}><T size={13} weight="600">{t('settings.dark')}</T><T size={10} muted>{t('settings.darkSub')}</T></View><Switch testID="settings-dark-theme-switch" value={settings.dark} onValueChange={toggleDark} trackColor={switchTrack} thumbColor={colors.white} ios_backgroundColor={colors.solidStrong} /></View>
       <SettingRow testID="settings-ambient-button" icon="rainy-outline" title={t('settings.ambient')} value={t('settings.ambientValue', { r: Math.round(settings.rain_volume * 100), c: Math.round(settings.cat_volume * 100) })} onPress={() => setModal({ type: 'ambient' })} />
       <SettingRow testID="settings-widget-button" icon="grid-outline" title={t('settings.widget')} value={t('settings.widgetSub')} onPress={() => setModal({ type: 'widget-preview' })} />
       <SettingRow testID="settings-ads-button" icon="megaphone-outline" title={t('settings.ads')} value={t('settings.adsSub')} onPress={() => setModal({ type: 'info', title: 'Ruang iklan', message: 'Versi ini belum menampilkan iklan dan belum terhubung ke jaringan iklan. Opsi bebas iklan direncanakan untuk Azam Pro.' })} />
@@ -82,26 +86,31 @@ export function Settings() {
 
 export function Pro() {
   const { settings, updateSettings, setModal, go, notify, lastTab } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { t } = useI18n();
+  const trial = trialInfo(settings); const pro = !!settings.pro_preview;
+  const startTrial = async () => { if (await updateSettings(startTrialPatch())) notify(t('pro.trialStarted')); };
   const shimmer = useSharedValue(0);
   useEffect(() => { shimmer.value = withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true); }, [shimmer]);
   const glow = useAnimatedStyle(() => ({ opacity: 0.35 + shimmer.value * 0.45, transform: [{ translateX: -120 + shimmer.value * 240 }] }));
   // Lead with the broadly-wanted features; Hajj & Umrah sits later so newcomers do not assume Pro is pilgrimage-only.
   const features = [
     { icon: 'moon', title: t('pro.f.sunnah'), text: t('pro.f.sunnahText'), badge: t('pro.f.sunnahBadge'), action: () => go('sunnah'), available: true, image: IMG.heroBirds },
-    { icon: 'contrast', title: t('pro.f.dark'), text: t('pro.f.darkText'), badge: settings.dark ? t('pro.f.darkOn') : t('pro.f.darkTry'), action: () => updateSettings({ dark: !settings.dark, pro_preview: true }), available: true },
+    { icon: 'contrast', title: t('pro.f.dark'), text: t('pro.f.darkText'), badge: settings.dark ? t('pro.f.darkOn') : t('pro.f.darkTry'), action: () => pro ? updateSettings({ dark: !settings.dark }) : notify(t('pro.needTrial')), available: true },
+    { icon: 'alarm', title: t('settings.alarm'), text: t('home.alarmHint'), badge: pro ? t('common.active') : t('common.pro'), action: () => go('alarms'), available: true },
     { icon: 'musical-notes', title: t('pro.f.sound'), text: `${PRO_AMBIENTS.map(a => a.label).join(' · ')}`, badge: t('common.soon'), action: () => setModal({ type: 'ambient' }), available: false, image: IMG.rain },
     { icon: 'shield-checkmark', title: t('pro.f.verse'), text: t('pro.f.verseText'), badge: t('pro.f.demo'), action: () => setModal({ type: 'blocker', pro: true, prayer: 'Magrib' }), available: true },
     { icon: 'grid', title: t('pro.f.widget'), text: t('pro.f.widgetText'), badge: t('pro.f.widgetBadge'), action: () => setModal({ type: 'widget-preview' }), available: true },
     { icon: 'navigate-circle', title: t('pro.f.hajj'), text: t('pro.f.hajjText'), badge: t('pro.f.hajjBadge'), action: () => go('hajj'), available: true, image: IMG.hajj },
     { icon: 'radio', title: t('pro.f.rakaat'), text: t('pro.f.rakaatText'), badge: t('pro.f.concept'), action: () => setModal({ type: 'rakaat-preview' }), available: false },
   ];
-  const compare = [[t('pro.c.basic'), true, true], [t('pro.c.ambient'), true, true], [t('pro.c.sunnah'), false, true], [t('pro.c.dark'), false, true], [t('pro.c.sound'), false, true], [t('pro.c.verse'), false, true], [t('pro.c.hajj'), false, true], [t('pro.c.ads'), false, true]];
+  const compare = [[t('pro.c.basic'), true, true], [t('pro.c.ambient'), true, true], [t('pro.c.sunnah'), false, true], [t('settings.alarm'), false, true], [t('pro.c.dark'), false, true], [t('pro.c.sound'), false, true], [t('pro.c.verse'), false, true], [t('pro.c.hajj'), false, true], [t('pro.c.ads'), false, true]];
   return <Page title={t('pro.title')} back={lastTab === 'home' ? 'settings' : lastTab} subtitle={t('pro.subtitle')}>
     <ImageBackground source={IMG.heroBirds} style={s.proHero} imageStyle={{ borderRadius: 28 }} testID="pro-hero"><LinearGradient colors={[colors.transparent, colors.overlay, colors.heroShade]} style={s.proShade} />
       <Animated.View pointerEvents="none" style={[s.shimmer, glow]}><LinearGradient colors={[colors.transparent, colors.goldSoft, colors.transparent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1 }} /></Animated.View>
-      <View style={{ padding: 20, gap: 8 }}><Badge text={settings.pro_preview ? t('pro.heroBadgeActive') : t('pro.heroBadge')} gold icon="sparkles" light /><T size={30} weight="800" color={colors.heroInk} style={{ letterSpacing: -1, lineHeight: 36 }}>{t('pro.heroTitle')}</T><T size={12} color={colors.heroMuted}>{t('pro.heroText')}</T></View></ImageBackground>
+      <View style={{ padding: 20, gap: 8 }}><Badge text={pro ? t('pro.trialBadge', { n: trial.daysLeft }) : t('pro.heroBadge')} gold icon="sparkles" light /><T size={30} weight="800" color={colors.heroInk} style={{ letterSpacing: -1, lineHeight: 36 }}>{t('pro.heroTitle')}</T><T size={12} color={colors.heroMuted}>{t('pro.heroText')}</T></View></ImageBackground>
     <View style={s.planRow}>{[[t('pro.monthly'), t('pro.monthlySub'), 'pro-plan-monthly'], [t('pro.yearly'), t('pro.yearlySub'), 'pro-plan-yearly']].map(([name, text, id], i) => <Tap key={String(id)} testID={String(id)} onPress={() => notify(t('pro.paymentSoon'))} style={[s.plan, i === 1 && s.planBest]}>{i === 1 && <View style={s.bestTag}><T size={9} weight="800" color={colors.goldInk}>{t('pro.best')}</T></View>}<T size={11} weight="700" color={colors.goldText}>{name}</T><T size={22} weight="800">{t('pro.soonPrice')}</T><T size={10} muted>{text}</T></Tap>)}</View>
-    <Button testID="pro-preview-button" title={settings.pro_preview ? t('pro.previewOn') : t('pro.previewTry')} icon="sparkles" variant="gold" onPress={() => updateSettings({ pro_preview: !settings.pro_preview })} />
+    {pro ? <Card style={s.trialCard} testID="pro-trial-active"><IconBox name="sparkles" size={44} icon={20} bg={colors.gold} color={colors.goldInk} /><View style={{ flex: 1 }}><T size={14} weight="800">{t('pro.trialActive', { n: trial.daysLeft })}</T><T size={11} muted>{t('pro.trialNote')}</T></View></Card>
+      : trial.expired ? <Card style={s.trialCard} testID="pro-trial-ended"><IconBox name="time-outline" size={44} icon={20} /><View style={{ flex: 1 }}><T size={14} weight="800">{t('pro.trialEnded')}</T><T size={11} muted>{t('pro.paymentSoon')}</T></View></Card>
+        : <View style={{ gap: 8 }}><Button testID="pro-trial-button" title={t('pro.trialStart')} icon="sparkles" variant="gold" onPress={startTrial} /><T size={11} muted style={{ textAlign: 'center' }}>{t('pro.trialNote')}</T></View>}
     <Section title={t('pro.get')} />
     <View style={s.featureGrid}>{features.map((f, i) => <Tap testID={`pro-feature-${i}`} key={f.title} style={[s.featureCard, !f.available && s.featureLocked]} onPress={f.action}>
       {f.image ? <ImageBackground source={f.image} style={s.featureArt} imageStyle={{ borderRadius: 16 }}><LinearGradient colors={[colors.transparent, colors.overlay]} style={[s.proShade, { borderRadius: 16 }]} /><Icon name={f.icon} size={22} color={colors.gold} /></ImageBackground> : <IconBox name={f.icon} size={48} icon={22} bg={f.available ? colors.goldSoft : undefined} color={f.available ? colors.goldText : colors.muted} />}
@@ -121,6 +130,7 @@ const useStyles = makeStyles(c => ({
   genderBtn: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, genderOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary },
   proHero: { height: 250, borderRadius: 28, justifyContent: 'flex-end', overflow: 'hidden' }, shimmer: { position: 'absolute', top: 0, bottom: 0, width: 160 }, featureLocked: { opacity: 0.65 },
   planRow: { flexDirection: 'row', gap: 10 }, plan: { flex: 1, padding: 14, borderRadius: 20, gap: 4, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }, planBest: { borderColor: c.gold, borderWidth: 2, backgroundColor: c.goldSoft }, bestTag: { position: 'absolute', top: -1, right: 12, backgroundColor: c.gold, paddingHorizontal: 8, paddingVertical: 3, borderBottomLeftRadius: 8, borderBottomRightRadius: 8 },
+  trialCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderColor: c.gold, backgroundColor: c.goldSoft },
   featureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, featureCard: { width: '48%', flexGrow: 1, padding: 14, borderRadius: 22, gap: 6, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }, featureArt: { height: 64, borderRadius: 16, alignItems: 'flex-end', justifyContent: 'flex-end', padding: 8, overflow: 'hidden' }, featureBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   compareRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, minHeight: 46, borderBottomWidth: 1, borderBottomColor: c.divider }, compareCol: { width: 54, alignItems: 'center', textAlign: 'center' },
 }));

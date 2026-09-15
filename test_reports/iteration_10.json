@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 10 tested Azam Pro 3-day trial (server-owned), home_photo setting, new Home greeting/hero-sky UI, App Blocker (Focus) refresh, share composer sticker removal + caption switch + photo-mode row gating, and alarm dzikir Pro gating. BACKEND: 9/9 tests in /app/backend/tests/test_iter10_pro_trial_home.py PASS. Key server-side invariants verified: (1) POST /api/auth/guest returns session_token; (2) GET /api/settings defaults include home_photo=false + pro_trial_started=null; (3) PUT pro_preview=true stamps pro_trial_started with a recent UTC ISO and IGNORES a client-supplied '2020-01-01T00:00:00+00:00'; (4) toggling pro_preview back to false PRESERVES pro_trial_started, and passing pro_trial_started=null in PUT is ignored (server-owned); (5) EXPIRY — directly setting Mongo settings.{pro_preview:true, pro_trial_started:'2020-01-01T00:00:00+00:00'} for a fresh guest user_id causes GET /api/settings to return pro_preview=false (auto-expired) and subsequent PUT with pro_preview=true still returns pro_preview=false (trial cannot restart); (6) home_photo=true persists via PUT and shows via GET; (7) regressions on /api/sunnah/status, /api/sunnah/checkin, /api/alarms CRUD all pass. FRONTEND (390x844 guest): (1) Home shows small 'Selamat pagi, Sahabat' via home-greet-line and large 'Assalamu\u2019alaikum ✨' via home-greeting; hero card next-prayer-card footer shows '4 Rabī\u02bea\u1e6chīnī 1448 H · Jakarta'; hero-sky-day LinearGradient tint present at current Jakarta hour; home-brand-button (Azam logo) visible by default; home-alarm-button badge contains 'PRO'. (2) Alarms flow: tap home-alarm-button opens Alarms with alarms-pro-gate visible; alarm-add-button (locked) navigates to Pro page instead of opening form. (3) On Pro page pro-trial-button 'Mulai uji coba gratis 3 hari' → after tap, pro-trial-active card shows 'Uji coba Pro aktif · sisa 3 hari', hero shows badge 'UJI COBA PRO · 3 HARI LAGI', and a success toast 'Uji coba Pro 3 hari dimulai. Selamat menikmati!' appears; returning to Alarms shows no gate. (4) Settings: settings-home-photo-switch is DISABLED with subtitle 'Unggah foto profil dulu untuk menampilkannya di beranda' for a guest without photo; settings-dark-theme-switch present. (5) Focus tab all testIDs present: blocker-enabled-toggle, blocker-stat-menit/salat/aplikasi, reminder-minutes-5/10/15/30, blocker-prayer-subuh, select-app-instagram, alarm-manage-button. (6) Share composer via daily-share-button: NO share-sticker-* elements (0), share-photo-mode-row NOT present before a photo is picked (0), share-caption-switch present + default ON with share-caption-0 and share-card-caption visible, share-filter-* filter chips still present (5). Toggle-caption-off flow: JS click may not have flipped the RN Switch in-preview (share-caption-0/card-caption still rendered) — see minor issue below.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter10_pro_trial_home.py",
+    "/app/test_reports/pytest/pytest_iter10.xml",
+    "/app/test_reports/iter10_home.jpeg",
+    "/app/test_reports/iter10_pro_active.jpeg",
+    "/app/test_reports/iter10_alarm_form.jpeg",
+    "/app/test_reports/iter10_settings.jpeg",
+    "/app/test_reports/iter10_focus.jpeg",
+    "/app/test_reports/iter10_share.jpeg"
+  ],
+  "action_items": [
+    "OPTIONAL: The Switch (RN-Web) does not project aria-disabled / aria-checked to the DOM, so automated tests must rely on visual state via screenshot rather than ARIA attributes. Not a functional bug — visually verified in screenshots (settings-home-photo-switch renders as gray/off + disabled hint copy).",
+    "OPTIONAL: In-preview JS-synthesized click on the RN Switch does not reliably toggle it (share-caption-switch OFF flow not reproducible via pointer events). Human/main-agent verification of the caption-off UI (share-caption-off text appearing, share-card-caption disappearing) is recommended. This does not affect end-user experience where a real touch tap works."
+  ],
+  "critical_code_review_comments": [
+    "server.apply_pro_trial() correctly implements a server-owned 3-day clock: activation stamps pro_trial_started with datetime.now(UTC).isoformat(); expiry (now - started >= 3d) forces pro_preview back to False on both GET (with a persist write when the on-disk value was still True) and PUT paths — cannot be restarted client-side.",
+    "PUT /api/settings overwrites body.pro_trial_started with the value from the existing settings doc BEFORE calling apply_pro_trial → client cannot set, backdate, or null out the trial start. Verified with test_pro_preview_activation_stamps_trial_and_ignores_client_value & test_pro_preview_off_keeps_trial_started.",
+    "Settings model correctly declares two new fields with sane defaults: home_photo: bool = False, pro_trial_started: str | None = None — no migration needed for existing users.",
+    "Home hero-sky tint keys (dawn/day/dusk/night) map to Jakarta hour phases; the 'night' phase renders no LinearGradient (expected per review request).",
+    "Alarms screen correctly gates on !pro: alarm-add-button shows lock icon + navigates to Pro; alarms-pro-gate card shows alarms-pro-button leading to Pro. Focus tab alarm-manage-button copy also switches to 'Mulai uji coba gratis 3 hari' (gold) when not Pro.",
+    "ShareComposer.tsx only renders share-photo-mode-row when a photo has been picked ({photo && <View testID=\"share-photo-mode-row\">…</View>}), matching the requirement to hide the mode row until upload."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter10_pro_trial_home.py",
+    "/app/test_reports/pytest/pytest_iter10.xml",
+    "/app/test_reports/iteration_10.json"
+  ],
+  "success_rate": { "backend": "100% (9/9)", "frontend": "~95% — 11/11 review bullets executed; caption-switch OFF toggle interaction not fully reproducible via JS synthetic events in the preview (state may not flip)" },
+  "seed_data_creation": "Each backend test uses a fresh POST /api/auth/guest. Expiry test connects to Mongo directly via MONGO_URL + DB_NAME from backend/.env (pymongo, sync client) and updates settings.{pro_preview,pro_trial_started} for the just-issued guest user_id, then cleans up implicitly (guest sessions expire in 30d, settings row is scoped to that user).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Frontend base https://9ee89279-425b-40ee-920d-aa98d77ad4d6.preview.emergentagent.com (390x844). Guest flow: click [data-testid=\"intro-skip-button\"] if present (intro overlay may mount before Welcome), then [data-testid=\"guest-login-button\"], then [data-testid=\"intro-skip-button\"] again for the 7-step post-login intro. RN Button/Tap wraps AnimatedPressable → clicks work via JS-synthesized pointerdown+pointerup+click on the [data-testid=\"…\"] element (page.mouse.click on the bbox is sometimes unreliable during FadeInDown 650ms). Iter10 new endpoints: none — Settings gained two fields (home_photo, pro_trial_started). Pro trial semantics: (a) activation is server-stamped, (b) trial persists across pro_preview off/on, (c) cannot restart after 3d — main agent MUST NOT expose an API path to reset pro_trial_started. Home hero-sky testIDs are one of {hero-sky-dawn, hero-sky-day, hero-sky-dusk} at Jakarta 05–19; night phase renders no LinearGradient (correct). Alarms pro gate = [data-testid=\"alarms-pro-gate\"], add-lock button navs to Pro. Share composer sticker section is intentionally REMOVED — do not add share-sticker-* checks. share-photo-mode-row appears only after photo pick. RN Switch on RN-Web does NOT project aria-checked / aria-disabled to DOM — assert via visual state or by reading settings from /api/settings, not from DOM ARIA attrs."
+}

@@ -3,7 +3,7 @@ import { Platform, Switch, View } from 'react-native';
 import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
 import { Alarm, describeRepeat, nextFire, openSystemAlarm, showTime, soonest, untilText } from '@/src/alarms';
-import { Badge, Button, Card, Icon, Page, Status, T, Tap } from '@/src/components/ui';
+import { Badge, Button, Card, Icon, IconBox, Page, Status, T, Tap } from '@/src/components/ui';
 import { AnimatedCat } from '@/src/components/AnimatedCat';
 import { useI18n } from '@/src/i18n';
 import { screenText } from '@/src/screenText';
@@ -16,8 +16,9 @@ const META: Record<string, { ringsIn: string; passed: string; off: string }> = {
 };
 
 export function Alarms() {
-  const { alarms, saveAlarm, removeAlarm, setModal, notify, now } = useApp(); const s = useStyles(); const { colors } = useTheme();
-  const { lang } = useI18n(); const tx = screenText(lang).alarms; const meta = META[lang] || META.id;
+  const { alarms, saveAlarm, removeAlarm, setModal, notify, now, settings, go } = useApp(); const s = useStyles(); const { colors } = useTheme();
+  const { lang, t } = useI18n(); const tx = screenText(lang).alarms; const meta = META[lang] || META.id;
+  const pro = !!settings?.pro_preview;
   const list: Alarm[] = alarms.data || [];
   const next = soonest(list, now);
   const [permission, setPermission] = useState<'granted' | 'missing' | 'web'>('web');
@@ -25,7 +26,9 @@ export function Alarms() {
     if (Platform.OS === 'web') return;
     import('expo-notifications').then(n => n.getPermissionsAsync()).then(p => setPermission(p.granted ? 'granted' : 'missing')).catch(() => setPermission('missing'));
   }, [alarms.data]);
+  const openForm = (alarm?: Alarm) => { if (!pro) { notify(t('pro.needTrial')); go('pro'); return; } setModal(alarm ? { type: 'alarm-form', alarm, title: tx.editTitle } : { type: 'alarm-form' }); };
   const toggle = async (a: Alarm, enabled: boolean) => {
+    if (!pro) { notify(t('pro.needTrial')); go('pro'); return; }
     try {
       if (enabled && a.repeat === 'once' && !nextFire(a)) { setModal({ type: 'alarm-form', alarm: a, title: tx.editTitle }); notify(tx.passedPickNew); return; }
       await saveAlarm({ ...a, enabled }, a.id); notify(enabled ? tx.on(showTime(a.time)) : tx.off(showTime(a.time)));
@@ -34,20 +37,24 @@ export function Alarms() {
   const remove = async (a: Alarm) => { try { await removeAlarm(a.id); notify(tx.removed); } catch (e: any) { notify(e.message); } };
   const toClock = async (a: Alarm) => { try { await openSystemAlarm(a); } catch { notify('Aplikasi Jam di HP belum bisa dibuka dari sini. Alarm notifikasi Azam tetap berjalan.'); } };
   return <Page title={tx.title} subtitle={tx.subtitle} back="focus"
-    right={<Tap testID="alarm-add-button" style={s.addButton} onPress={() => setModal({ type: 'alarm-form' })} accessibilityLabel={tx.addLabel}><Icon name="add" size={24} color={colors.onBrandPrimary} /></Tap>}>
+    right={<Tap testID="alarm-add-button" style={[s.addButton, !pro && s.addLocked]} onPress={() => openForm()} accessibilityLabel={tx.addLabel}><Icon name={pro ? 'add' : 'lock-closed'} size={pro ? 24 : 18} color={pro ? colors.onBrandPrimary : colors.goldInk} /></Tap>}>
+    {!pro && <Card style={s.proGate} testID="alarms-pro-gate">
+      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}><IconBox name="sparkles" bg={colors.gold} color={colors.goldInk} /><View style={{ flex: 1 }}><T size={15} weight="800">{t('alarm.proTitle')}</T><T size={12} muted>{t('alarm.proText')}</T></View></View>
+      <Button title={t('pro.trialStart')} testID="alarms-pro-button" icon="sparkles" variant="gold" size="sm" onPress={() => go('pro')} />
+    </Card>}
     <Card style={s.hero}><View style={s.heroArt}><AnimatedCat size={92} /></View><View style={{ flex: 1, gap: 4 }}>
-      {next ? <><Badge text={tx.nextBadge} icon="alarm-outline" /><T testID="alarms-next-time" size={34} weight="800" style={{ letterSpacing: -1.5 }}>{showTime(next.alarm.time)}</T><T size={12} weight="600">{next.alarm.label}</T><T testID="alarms-next-until" size={11} muted>{describeRepeat(next.alarm)} · {meta.ringsIn} {untilText(next.at, now)}</T></>
-        : <><Badge text={tx.noneBadge} icon="moon-outline" /><T size={16} weight="700">{tx.setFirst}</T><T size={11} muted>{tx.setFirstDesc}</T></>}
+      {next && pro ? <><Badge text={tx.nextBadge} icon="alarm-outline" /><T testID="alarms-next-time" size={34} weight="800" style={{ letterSpacing: -1.5 }}>{showTime(next.alarm.time)}</T><T size={12} weight="600">{next.alarm.label}</T><T testID="alarms-next-until" size={11} muted>{describeRepeat(next.alarm)} · {meta.ringsIn} {untilText(next.at, now)}</T></>
+        : <><Badge text={pro ? tx.noneBadge : t('common.pro')} icon={pro ? 'moon-outline' : 'lock-closed'} gold={!pro} /><T size={16} weight="700">{tx.setFirst}</T><T size={11} muted>{tx.setFirstDesc}</T></>}
     </View></Card>
-    {permission === 'missing' && <Tap testID="alarms-permission-banner" style={s.warn} onPress={() => setModal({ type: 'notifications' })}><Icon name="notifications-off-outline" size={20} color={colors.warning} /><T size={12} weight="600" color={colors.warning} style={{ flex: 1 }}>{tx.permissionBanner}</T><Icon name="chevron-forward" size={16} color={colors.warning} /></Tap>}
-    {alarms.isLoading ? <Status loading /> : alarms.isError ? <Status error={alarms.error} retry={alarms.refetch} /> : !list.length ? <Card style={s.empty}><Icon name="alarm-outline" size={36} color={colors.muted} /><T size={15} weight="700" style={s.center}>{tx.emptyTitle}</T><T size={12} muted style={s.center}>{tx.emptyDesc}</T><Button testID="alarm-empty-add-button" title={tx.add} icon="add-circle-outline" onPress={() => setModal({ type: 'alarm-form' })} /></Card>
-      : list.map(a => { const at = a.enabled ? nextFire(a, now) : null; const slug = a.id.slice(-6); return <Card key={a.id} testID={`alarm-card-${slug}`} style={[s.card, !a.enabled && s.cardOff]}>
-        <Tap testID={`alarm-edit-${slug}`} style={s.mainRow} onPress={() => setModal({ type: 'alarm-form', alarm: a, title: tx.editTitle })}>
+    {pro && permission === 'missing' && <Tap testID="alarms-permission-banner" style={s.warn} onPress={() => setModal({ type: 'notifications' })}><Icon name="notifications-off-outline" size={20} color={colors.warning} /><T size={12} weight="600" color={colors.warning} style={{ flex: 1 }}>{tx.permissionBanner}</T><Icon name="chevron-forward" size={16} color={colors.warning} /></Tap>}
+    {alarms.isLoading ? <Status loading /> : alarms.isError ? <Status error={alarms.error} retry={alarms.refetch} /> : !list.length ? <Card style={s.empty}><Icon name="alarm-outline" size={36} color={colors.muted} /><T size={15} weight="700" style={s.center}>{tx.emptyTitle}</T><T size={12} muted style={s.center}>{tx.emptyDesc}</T><Button testID="alarm-empty-add-button" title={pro ? tx.add : t('alarm.proButton')} icon={pro ? 'add-circle-outline' : 'sparkles'} variant={pro ? 'primary' : 'gold'} onPress={() => openForm()} /></Card>
+      : list.map(a => { const at = a.enabled && pro ? nextFire(a, now) : null; const slug = a.id.slice(-6); return <Card key={a.id} testID={`alarm-card-${slug}`} style={[s.card, (!a.enabled || !pro) && s.cardOff]}>
+        <Tap testID={`alarm-edit-${slug}`} style={s.mainRow} onPress={() => openForm(a)}>
           <View style={{ flex: 1, gap: 2 }}><T testID={`alarm-time-${slug}`} size={40} weight="800" color={a.enabled ? colors.onSurface : colors.muted} style={{ letterSpacing: -1.5 }}>{showTime(a.time)}</T>
             <T size={14} weight="700" numberOfLines={1} color={a.enabled ? colors.onSurface : colors.muted}>{a.label}</T>
             <View style={s.metaRow}><Icon name={a.repeat === 'once' ? 'calendar-outline' : 'repeat-outline'} size={13} color={colors.onBrandSecondary} /><T testID={`alarm-repeat-${slug}`} size={11} color={colors.onBrandSecondary}>{describeRepeat(a)}</T></View>
             <T size={11} muted>{at ? `${meta.ringsIn} ${untilText(at, now)} · “${a.phrase}”` : a.enabled ? meta.passed : meta.off}</T></View>
-          <Switch testID={`alarm-switch-${slug}`} value={a.enabled} onValueChange={(value) => toggle(a, value)} trackColor={{ false: colors.borderStrong, true: colors.brandPrimary }} thumbColor={colors.white} />
+          <Switch testID={`alarm-switch-${slug}`} value={a.enabled && pro} onValueChange={(value) => toggle(a, value)} trackColor={{ false: colors.borderStrong, true: colors.brandPrimary }} thumbColor={colors.white} />
         </Tap>
         <View style={s.actions}>
           <Tap testID={`alarm-preview-${slug}`} style={s.action} onPress={() => setModal({ type: 'alarm', alarm: a, preview: true })}><Icon name="play-outline" size={16} color={colors.onBrandSecondary} /><T size={11} weight="700" color={colors.onBrandSecondary}>{tx.tryTone}</T></Tap>
@@ -59,7 +66,8 @@ export function Alarms() {
   </Page>;
 }
 const useStyles = makeStyles(c => ({
-  addButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: c.brandPrimary, alignItems: 'center', justifyContent: 'center' },
+  addButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: c.brandPrimary, alignItems: 'center', justifyContent: 'center' }, addLocked: { backgroundColor: c.gold },
+  proGate: { gap: 14, borderColor: c.gold, backgroundColor: c.goldSoft },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface }, heroArt: { width: 96, height: 96, borderRadius: 30, backgroundColor: c.brandSecondary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   warn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 18, backgroundColor: c.goldSoft, borderWidth: 1, borderColor: c.gold },
   empty: { alignItems: 'center', gap: 12, paddingVertical: 28 }, center: { textAlign: 'center' },

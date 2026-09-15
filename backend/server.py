@@ -139,6 +139,31 @@ class Settings(BaseModel):
     language: Literal['id', 'en', 'ms', 'ar'] = 'id'
     sunnah_reminders: list[Literal['tahajud', 'dhuha', 'witir', 'rawatib']] = Field(default_factory=list, max_length=4)
     sunnah_since: str | None = None
+    # Home header shows the profile photo instead of the Azam logo (default: logo).
+    home_photo: bool = False
+    # Azam Pro: one free 3-day trial per account. Set once when the trial starts (UTC ISO); never reset.
+    pro_trial_started: str | None = None
+
+
+PRO_TRIAL_DAYS = 3
+
+
+def apply_pro_trial(settings: 'Settings') -> 'Settings':
+    """Server-side source of truth for the 3-day Pro trial: starts the clock on first activation, expires after 3 days."""
+    now = datetime.now(timezone.utc)
+    if settings.pro_preview and not settings.pro_trial_started:
+        settings.pro_trial_started = now.isoformat()
+    if settings.pro_trial_started:
+        try:
+            started = datetime.fromisoformat(settings.pro_trial_started)
+        except ValueError:
+            started = now
+            settings.pro_trial_started = now.isoformat()
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if now - started >= timedelta(days=PRO_TRIAL_DAYS):
+            settings.pro_preview = False
+    return settings
 
 
 SUNNAH_KEYS = ('tahajud', 'dhuha', 'witir', 'rawatib')
@@ -266,7 +291,11 @@ async def get_file(path: str, token: str | None = None, authorization: str | Non
 @router.get('/settings', response_model=Settings)
 async def get_settings(user=Depends(current_user)):
     doc = await db.settings.find_one({'user_id': user['user_id']}, {'_id': 0})
-    return Settings(**(doc or {}))
+    settings = Settings(**(doc or {}))
+    expired = apply_pro_trial(settings)
+    if doc and doc.get('pro_preview') and not expired.pro_preview:
+        await db.settings.update_one({'user_id': user['user_id']}, {'$set': {'pro_preview': False}})
+    return expired
 
 
 @router.put('/settings', response_model=Settings)
@@ -276,6 +305,10 @@ async def save_settings(body: Settings, user=Depends(current_user)):
         ZoneInfo(body.timezone)
     except ZoneInfoNotFoundError:
         raise HTTPException(422, 'Zona waktu tidak valid.')
+    # The trial start date is owned by the server: clients can neither set nor reset it.
+    existing = await db.settings.find_one({'user_id': user['user_id']}, {'_id': 0, 'pro_trial_started': 1})
+    body.pro_trial_started = (existing or {}).get('pro_trial_started')
+    body = apply_pro_trial(body)
     await db.settings.update_one({'user_id': user['user_id']}, {'$set': body.model_dump()}, upsert=True)
     return body
 

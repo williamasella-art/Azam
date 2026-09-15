@@ -8,8 +8,10 @@ import { Alarm, nextFire, scheduleSnooze, syncAlarmNotifications } from '@/src/a
  * alarm notifications (or their Tunda / Matikan actions) back into the app.
  */
 export function AlarmScheduler() {
-  const { user, alarms, saveAlarm, setModal, notify } = useApp();
+  const { user, alarms, saveAlarm, setModal, notify, settings } = useApp();
   const list: Alarm[] | undefined = alarms.data;
+  // Dhikr alarms are a Pro feature: without an active Pro trial nothing is scheduled with the OS.
+  const pro = !!settings?.pro_preview;
   const listRef = useRef<Alarm[] | undefined>(list); listRef.current = list;
   const pending = useRef<string | null>(null);
   const finish = useRef<(a: Alarm) => void>(() => {});
@@ -23,11 +25,11 @@ export function AlarmScheduler() {
     if (pending.current) open(pending.current);
     // One-time alarms whose moment has passed are switched off so the list stays honest.
     for (const a of list) if (a.repeat === 'once' && a.enabled && !nextFire(a)) finish.current(a);
-    const run = () => { syncAlarmNotifications(list).catch(() => notify('Alarm belum bisa dijadwalkan di perangkat ini.')); };
+    const run = () => { syncAlarmNotifications(pro ? list : []).catch(() => notify('Alarm belum bisa dijadwalkan di perangkat ini.')); };
     run();
     const sub = AppState.addEventListener('change', state => { if (state === 'active') run(); });
     return () => sub.remove();
-  }, [list, notify]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [list, notify, pro]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (Platform.OS === 'web' || !user) return;
     let subs: { remove: () => void }[] = []; let cancelled = false;

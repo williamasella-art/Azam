@@ -34,6 +34,14 @@ User choices: language switch both manual + device; push notifications; preset b
 ## Bug fixes
 - 2026-09-15: Root layout crash on Expo Go (Android, SDK 53+). `app/_layout.tsx` imported `expo-notifications` statically at module scope; the module throws on evaluation in Expo Go, making the layout module undefined ("Cannot read property 'ErrorBoundary' of undefined", "missing the required default export"). Fixed by lazy-loading `expo-notifications` inside `useEffect` with try/catch (handler, Android channel, tap listeners, permission nudge all moved there). Verified: app renders, no layout errors in Metro log.
 
+## Implemented (2026-09-15, iteration 10)
+- Home: cleaner greeting (small "Selamat pagi, Sahabat" → large "Assalamu’alaikum ✨"), hijri date + city moved to hero footer, hero sky tint auto-changes by hour (dawn/day/dusk/night; stars only at night), top-left shows profile photo when Settings → "Foto profil di beranda" is ON (default OFF → Azam logo). Alarm card badged PRO.
+- Share story: Islamic stickers removed; "Layar penuh / Di tengah" row only after a photo is picked; caption optional via switch (also removed from shared text); level/star badge hidden whenever a photo is used.
+- App Blocker: hero with status badges + stat pills, segmented minute picker, PrayerSky prayer chips, alarm card gated to Pro, Pro card advertises 3-day trial.
+- Alarm dzikir → Pro feature: Alarms screen gate card, add/toggle redirect to Pro, AlarmScheduler cancels OS alarms when not Pro.
+- Azam Pro 3-day free trial: server-owned `pro_trial_started` (client cannot set/reset), expiry forces `pro_preview=false` on GET/PUT, one trial per account; Pro page shows start/active (days left)/ended states; dark mode gated to Pro. Settings: `home_photo` switch (disabled without photo).
+- Tests: 9/9 backend (tests/test_iter10_pro_trial_home.py), frontend flows verified by testing agent + caption-off self-check.
+
 ## Backlog (not in this iteration)
 - P1: Localize the relative-time / repeat helper strings in alarms.ts (currently Indonesian) for full alarm-screen translation.
 - P1: Full native RTL layout mirroring (row reversal) via I18nManager on a native build.

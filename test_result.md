@@ -101,3 +101,39 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Iteration 10 (2026-09-15) — Home UI refresh, Share story cleanup, Blocker visuals, Home avatar setting, Alarm → Pro, Pro 3-day trial
+backend:
+  - task: "Pro 3-day trial (server-owned pro_trial_started; expiry forces pro_preview=false; home_photo setting)"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    needs_retesting: true
+frontend:
+  - task: "Home header: cleaner greeting (small greet + big Assalamu'alaikum), hijri date in hero footer, day/night hero tint, avatar top-left when settings.home_photo && photo"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/screens/Home.tsx"
+    needs_retesting: true
+  - task: "ShareComposer: stickers removed; photo mode row only after photo; caption optional via switch; LevelBadge hidden whenever a photo is used"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/components/ShareComposer.tsx"
+    needs_retesting: true
+  - task: "Focus/App Blocker visual refresh (hero stats, segmented minutes, PrayerSky prayer chips, alarm card gated to Pro)"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/screens/Focus.tsx"
+    needs_retesting: true
+  - task: "Settings: home_photo switch (disabled w/o photo), dark mode gated to Pro; Pro page: 3-day trial button/active/expired states"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/screens/Settings.tsx"
+    needs_retesting: true
+  - task: "Alarms screen gated to Pro (gate card, add/toggle redirect to Pro); AlarmScheduler cancels OS alarms when not Pro"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/screens/Alarms.tsx, frontend/src/components/AlarmScheduler.tsx"
+    needs_retesting: true
+agent_communication:
+  - agent: "main"
+    message: "Backend trial logic verified manually via python (start stamps server date, client cannot set/reset, expiry → pro_preview False on GET/PUT). Need testing agent for backend regression + frontend flows."
