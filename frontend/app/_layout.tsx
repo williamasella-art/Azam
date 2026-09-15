@@ -6,7 +6,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
 import * as Linking from 'expo-linking';
 import { ErrorBoundary } from '@/src/components/error-boundary';
 import { queryClient } from '@/src/query-client';
@@ -15,15 +14,11 @@ import { AmbientProvider } from '@/src/ambient';
 import { storage } from '@/src/utils/storage';
 import { useTheme } from '@/src/theme';
 
-// Push: foreground display behaviour — module scope, before any component.
-if (Platform.OS !== 'web') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false, shouldShowBanner: true, shouldShowList: true }),
-  });
-}
-// Android channel — module scope so it exists before any push arrives.
-if (Platform.OS === 'android') {
-  Notifications.setNotificationChannelAsync('default', { name: 'Azam', importance: Notifications.AndroidImportance.MAX, sound: 'default' });
+// expo-notifications is loaded lazily: in Expo Go (SDK 53+, Android) the module throws on evaluation,
+// which would otherwise break the whole root layout. Returns null when unavailable.
+async function loadNotifications() {
+  if (Platform.OS === 'web') return null;
+  try { return await import('expo-notifications'); } catch { return null; }
 }
 
 export default function RootLayout() {
@@ -37,30 +32,41 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    const openUrl = (url?: string) => { if (!url) return; url.startsWith('http') ? Linking.openURL(url).catch(() => {}) : Linking.openURL(Linking.createURL(url)).catch(() => {}); };
-    // Warm tap — notification tapped while app is open.
-    const tapSub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data: any = response.notification.request.content.data || {};
-      openUrl(data.deeplink || data.action_url);
-    });
-    // Cold-start tap — app was killed when the notification was tapped.
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      const data: any = response?.notification.request.content.data || {};
-      if (data.deeplink || data.action_url) openUrl(data.deeplink || data.action_url);
-    }).catch(() => {});
-    // Weekly nudge for users who denied notifications (never auto-opens without throttle).
+    let tapSub: { remove: () => void } | null = null;
+    let cancelled = false;
+    const openUrl = (url?: string) => { if (!url) return; Linking.openURL(url.startsWith('http') ? url : Linking.createURL(url)).catch(() => {}); };
     (async () => {
+      const Notifications = await loadNotifications();
+      if (!Notifications || cancelled) return;
       try {
+        // Foreground display behaviour.
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false, shouldShowBanner: true, shouldShowList: true }),
+        });
+        // Android channel so it exists before any push arrives.
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync('default', { name: 'Azam', importance: Notifications.AndroidImportance.MAX, sound: 'default' }).catch(() => {});
+        }
+        // Warm tap — notification tapped while app is open.
+        tapSub = Notifications.addNotificationResponseReceivedListener((response) => {
+          const data: any = response.notification.request.content.data || {};
+          openUrl(data.deeplink || data.action_url);
+        });
+        // Cold-start tap — app was killed when the notification was tapped.
+        const last = await Notifications.getLastNotificationResponseAsync().catch(() => null);
+        const data: any = last?.notification.request.content.data || {};
+        if (data.deeplink || data.action_url) openUrl(data.deeplink || data.action_url);
+        // Weekly nudge for users who denied notifications (never auto-opens without throttle).
         const { status, canAskAgain } = await Notifications.getPermissionsAsync();
         if (status !== 'denied' || canAskAgain) return;
-        const last = await storage.getItem<number>('pushNudgeAt', 0);
+        const lastNudge = await storage.getItem<number>('pushNudgeAt', 0);
         const week = 7 * 24 * 60 * 60 * 1000;
-        if (last && Date.now() - Number(last) <= week) return;
+        if (lastNudge && Date.now() - Number(lastNudge) <= week) return;
         await storage.setItem('pushNudgeAt', Date.now());
         Linking.openSettings().catch(() => {});
-      } catch { /* ignore */ }
+      } catch { /* notifications are non-blocking */ }
     })();
-    return () => { tapSub.remove(); };
+    return () => { cancelled = true; tapSub?.remove(); };
   }, []);
 
   if (!ready && !error) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.pageTop }}><ActivityIndicator color={colors.brandPrimary} /></View>;

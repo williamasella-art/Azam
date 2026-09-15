@@ -31,6 +31,9 @@ User choices: language switch both manual + device; push notifications; preset b
 - [6] PrayerSky recolored to soft blue-forward palette. (Verified.)
 - [7] App Blocker toggle: custom animated glass pill with sliding knob, brand color when on. (Verified ON/OFF.)
 
+## Bug fixes
+- 2026-09-15: Root layout crash on Expo Go (Android, SDK 53+). `app/_layout.tsx` imported `expo-notifications` statically at module scope; the module throws on evaluation in Expo Go, making the layout module undefined ("Cannot read property 'ErrorBoundary' of undefined", "missing the required default export"). Fixed by lazy-loading `expo-notifications` inside `useEffect` with try/catch (handler, Android channel, tap listeners, permission nudge all moved there). Verified: app renders, no layout errors in Metro log.
+
 ## Backlog (not in this iteration)
 - P1: Localize the relative-time / repeat helper strings in alarms.ts (currently Indonesian) for full alarm-screen translation.
 - P1: Full native RTL layout mirroring (row reversal) via I18nManager on a native build.
