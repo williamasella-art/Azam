@@ -171,6 +171,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (fresh.length) { await storage.setItem(key, unlocked); setModal({ type: 'levelup', level: fresh[fresh.length - 1] }); }
     })();
   }, [user, progress.data]);
+  // Push registration + smart sunnah nudge — runs once per app open when signed in.
+  useEffect(() => {
+    if (!user || !settings?.onboarded || Platform.OS === 'web') return;
+    (async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        if ((await Notifications.getPermissionsAsync()).granted) {
+          const tokenResp = await Notifications.getDevicePushTokenAsync();
+          await api('/register-push', { user_id: user.user_id, platform: Platform.OS, device_token: String(tokenResp.data) }, 'POST');
+        }
+      } catch { /* push registration is non-blocking */ }
+      try { await api('/sunnah/nudge-check', {}, 'POST'); } catch { /* nudge is non-blocking */ }
+    })();
+  }, [user, settings?.onboarded]); // eslint-disable-line react-hooks/exhaustive-deps
   const [checking, setChecking] = useState(false);
   const checkin = async (name: string, date = day) => {
     if (checking) return;

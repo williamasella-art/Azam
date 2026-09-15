@@ -26,7 +26,7 @@ import requests
 
 BASE_URL = (os.environ.get("EXPO_BACKEND_URL")
             or os.environ.get("EXPO_PUBLIC_BACKEND_URL")
-            or "https://9306b460-5463-4638-a0e2-20b08a7825b2.preview.emergentagent.com").rstrip("/")
+            or "https://prayer-reminder-app-14.preview.emergentagent.com").rstrip("/")
 
 
 def _tiny_png() -> bytes:

@@ -12,6 +12,8 @@ import { api } from '@/src/api';
 import { makeStyles, useTheme } from '@/src/theme';
 import { IMG } from '@/src/assets';
 import { Badge, Button, Card, Icon, Page, Status, T, Tap } from '@/src/components/ui';
+import { useI18n } from '@/src/i18n';
+import { screenText } from '@/src/screenText';
 
 /** Unwraps a compass heading so the animation always takes the shortest path. */
 function unwrap(previous: number, next: number) { let delta = ((next - previous + 540) % 360) - 180; if (delta < -180) delta += 360; return previous + delta; }
@@ -20,6 +22,7 @@ const FOLLOW = { duration: 60, easing: Easing.linear };
 
 export function Qibla() {
   const { settings, setModal } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { width } = useWindowDimensions();
+  const { lang, locale } = useI18n(); const tx = screenText(lang).qibla;
   const [heading, setHeading] = useState<number | null>(null); const [accuracy, setAccuracy] = useState(0); const [simulated, setSimulated] = useState(0);
   const query = useQuery({ queryKey: ['qibla', settings.latitude, settings.longitude], queryFn: () => api(`/qibla?latitude=${settings.latitude}&longitude=${settings.longitude}`).then(r => r.data) });
   const bearing = query.data?.bearing || 0; const bearingRef = useRef(bearing); bearingRef.current = bearing;
@@ -73,10 +76,10 @@ export function Qibla() {
   const spin = useMemo(() => Gesture.Pan().enabled(!sensor).runOnJS(true)
     .onBegin(e => { spinStart.current = { angle: angleOf(e.x, e.y), value: simRef.current }; })
     .onUpdate(e => { setSimulated((((spinStart.current.value + angleOf(e.x, e.y) - spinStart.current.angle) % 360) + 360) % 360); }), [sensor, half]); // eslint-disable-line react-hooks/exhaustive-deps
-  return <Page title="Arah kiblat" subtitle="Satu arah, menyatukan hati.">
+  return <Page title={tx.title} subtitle={tx.subtitle}>
     <Tap testID="qibla-location-button" style={s.location} onPress={() => setModal({ type: 'location' })}><Icon name="location" color={colors.brandTertiary} size={16} /><T size={13} weight="700">{settings.city}</T><Icon name="chevron-down" color={colors.muted} size={15} /></Tap>
     {query.isLoading || query.error ? <Status loading={query.isLoading} error={query.error} retry={query.refetch} /> : <>
-      <View style={s.compassWrap}><Badge text={sensor ? 'KOMPAS PERANGKAT' : 'MODE SIMULASI · TANPA SENSOR'} icon="compass-outline" />
+      <View style={s.compassWrap}><Badge text={sensor ? tx.deviceCompass : tx.simMode} icon="compass-outline" />
         <GestureDetector gesture={spin}><View testID="qibla-compass" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
           <Animated.View style={[s.ring, { width: size, height: size, borderRadius: half, borderColor: aligned ? colors.success : colors.border }, ringStyle]} />
           <Animated.View style={[{ position: 'absolute', width: size, height: size }, dialStyle]}>
@@ -94,14 +97,14 @@ export function Qibla() {
           <View style={s.hub}><Icon name="navigate" size={18} color={colors.onBrandPrimary} /></View>
         </View></GestureDetector>
         <T testID="qibla-bearing" size={40} weight="800" style={{ letterSpacing: -1.5 }}>{bearing.toFixed(1)}<T size={26} color={colors.brandTertiary}>°</T></T>
-        <T testID="qibla-sensor-status" size={13} weight="600" color={aligned ? colors.success : colors.onBrandSecondary}>{aligned ? 'Kamu menghadap kiblat ✓' : sensor ? 'Putar perangkat mengikuti Ka’bah' : `Kiblat ${bearing.toFixed(0)}° searah jarum jam dari utara`}</T>
-        <T size={11} muted>{query.data.distance_km.toLocaleString('id-ID')} km menuju Ka’bah</T>
+        <T testID="qibla-sensor-status" size={13} weight="600" color={aligned ? colors.success : colors.onBrandSecondary}>{aligned ? tx.aligned : sensor ? tx.turnToFollow : tx.clockwise(bearing.toFixed(0))}</T>
+        <T size={11} muted>{tx.distance(query.data.distance_km.toLocaleString(locale))}</T>
       </View>
-      {!sensor && <Card style={s.sim}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icon name="hand-left-outline" size={18} color={colors.onBrandSecondary} /><T size={13} weight="700">Geser kompas atau slider</T><View style={{ flex: 1 }} /><T testID="qibla-simulated-heading" size={12} weight="700" color={colors.onBrandSecondary}>{Math.round(simulated)}°</T></View>
-        <Slider testID="qibla-simulation-slider" style={{ height: 40 }} minimumValue={0} maximumValue={359} step={1} value={simulated} onValueChange={setSimulated} minimumTrackTintColor={colors.brandPrimary} maximumTrackTintColor={colors.borderStrong} thumbTintColor={colors.brandTertiary} accessibilityLabel="Simulasi arah perangkat" />
-        <T size={11} muted>Sensor kompas tidak tersedia di pratinjau ini. Geser untuk melihat animasi; di ponsel, kompas mengikuti gerakan perangkat.</T></Card>}
-      {sensor && <Card style={s.sim}><Icon name="information-circle-outline" color={colors.onBrandSecondary} /><T size={12} muted>Letakkan ponsel mendatar, jauhi benda logam, lalu gerakkan membentuk angka delapan untuk kalibrasi.</T>{accuracy < 2 && <T size={11} color={colors.warning}>Akurasi sensor rendah. Kalibrasikan sebelum mengikuti arah.</T>}</Card>}
-      <Button testID="qibla-manual-location-button" variant="secondary" title="Ubah lokasi otomatis / manual" icon="locate-outline" onPress={() => setModal({ type: 'location' })} />
+      {!sensor && <Card style={s.sim}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icon name="hand-left-outline" size={18} color={colors.onBrandSecondary} /><T size={13} weight="700">{tx.dragHint}</T><View style={{ flex: 1 }} /><T testID="qibla-simulated-heading" size={12} weight="700" color={colors.onBrandSecondary}>{Math.round(simulated)}°</T></View>
+        <Slider testID="qibla-simulation-slider" style={{ height: 40 }} minimumValue={0} maximumValue={359} step={1} value={simulated} onValueChange={setSimulated} minimumTrackTintColor={colors.brandPrimary} maximumTrackTintColor={colors.borderStrong} thumbTintColor={colors.brandTertiary} accessibilityLabel={tx.dragHint} />
+        <T size={11} muted>{tx.sliderNote}</T></Card>}
+      {sensor && <Card style={s.sim}><Icon name="information-circle-outline" color={colors.onBrandSecondary} /><T size={12} muted>{tx.sensorHint}</T>{accuracy < 2 && <T size={11} color={colors.warning}>{tx.lowAccuracy}</T>}</Card>}
+      <Button testID="qibla-manual-location-button" variant="secondary" title={tx.changeLocation} icon="locate-outline" onPress={() => setModal({ type: 'location' })} />
     </>}
   </Page>;
 }

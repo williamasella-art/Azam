@@ -19,13 +19,37 @@ const TEMPLATES = [
 ];
 const dayIndex = (d = new Date()) => Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86400000);
 
+// Preset light Islamic photo filters (translucent tints, kept identical in light/dark on purpose).
+const FILTERS: { key: string; label: Record<string, string>; colors: string[] | null }[] = [
+  { key: 'none', label: { id: 'Asli', en: 'Original', ms: 'Asal', ar: 'أصلي' }, colors: null },
+  { key: 'warm', label: { id: 'Hangat', en: 'Warm', ms: 'Hangat', ar: 'دافئ' }, colors: ['rgba(255,176,94,0.20)', 'rgba(214,110,40,0.14)'] },
+  { key: 'cool', label: { id: 'Sejuk', en: 'Cool', ms: 'Sejuk', ar: 'بارد' }, colors: ['rgba(70,150,230,0.22)', 'rgba(20,60,120,0.16)'] },
+  { key: 'gold', label: { id: 'Emas', en: 'Gold', ms: 'Emas', ar: 'ذهبي' }, colors: ['rgba(242,185,59,0.26)', 'rgba(120,80,0,0.16)'] },
+  { key: 'mono', label: { id: 'Klasik', en: 'Classic', ms: 'Klasik', ar: 'كلاسيكي' }, colors: ['rgba(20,30,45,0.34)', 'rgba(20,30,45,0.30)'] },
+];
+// Preset light Islamic stickers (vector motifs — no heavy assets).
+const STICKERS: { key: string; label: Record<string, string>; icon: string | null }[] = [
+  { key: 'none', label: { id: 'Tanpa', en: 'None', ms: 'Tiada', ar: 'بلا' }, icon: null },
+  { key: 'crescent', label: { id: 'Hilal', en: 'Crescent', ms: 'Hilal', ar: 'هلال' }, icon: 'moon' },
+  { key: 'star', label: { id: 'Bintang', en: 'Star', ms: 'Bintang', ar: 'نجمة' }, icon: 'star' },
+  { key: 'mosque', label: { id: 'Masjid', en: 'Mosque', ms: 'Masjid', ar: 'مسجد' }, icon: 'business' },
+  { key: 'lantern', label: { id: 'Fanus', en: 'Lantern', ms: 'Tanglung', ar: 'فانوس' }, icon: 'flame' },
+  { key: 'sparkle', label: { id: 'Cahaya', en: 'Glow', ms: 'Cahaya', ar: 'نور' }, icon: 'sparkles' },
+  { key: 'frame', label: { id: 'Bingkai', en: 'Frame', ms: 'Bingkai', ar: 'إطار' }, icon: 'apps' },
+];
+const SECTION_LABEL: Record<string, { filter: string; sticker: string }> = {
+  id: { filter: 'Filter foto', sticker: 'Stiker Islami' }, en: { filter: 'Photo filter', sticker: 'Islamic sticker' },
+  ms: { filter: 'Penapis foto', sticker: 'Pelekat Islami' }, ar: { filter: 'مرشّح الصورة', sticker: 'ملصق إسلامي' },
+};
+
 /** Interactive 9:16 story composer: template or own photo (full-screen background / centre), tint, caption, date, daily verse, stats, then share. */
 export function ShareComposer() {
   const { modal, progress, notify, user, settings, daily, prayers } = useApp(); const s = useStyles(); const { colors } = useTheme(); const { width } = useWindowDimensions();
-  const { t, lang, locale } = useI18n(); const captions = CAPTIONS[lang];
+  const { t, lang, locale } = useI18n(); const captions = CAPTIONS[lang]; const sec = SECTION_LABEL[lang] || SECTION_LABEL.id;
   const shot = useRef<any>(null); const [busy, setBusy] = useState(false);
   const [template, setTemplate] = useState(0); const [tint, setTint] = useState(0); const [caption, setCaption] = useState(dayIndex() % captions.length);
   const [showStats, setShowStats] = useState(true); const [showName, setShowName] = useState(true); const [showVerse, setShowVerse] = useState(true);
+  const [photoFilter, setPhotoFilter] = useState(0); const [sticker, setSticker] = useState(0);
   // Own photo defaults to full-screen: the story card becomes the photo itself, with text laid over a soft bottom shade.
   const [photo, setPhoto] = useState<string | null>(null); const [photoMode, setPhotoMode] = useState<'bg' | 'center'>('bg'); const [blocked, setBlocked] = useState(false);
   const verse = modal.verse; const isVerse = modal.type === 'share-verse'; const completed = modal.type === 'success'; const isBadge = modal.type === 'share-badge'; const badge = modal.level;
@@ -71,6 +95,17 @@ export function ShareComposer() {
         <ImageBackground source={useBg ? { uri: photo as string } : TEMPLATES[template].image} resizeMode="cover" style={[s.card, { width: cardWidth, height: cardHeight }]} imageStyle={{ borderRadius: 28 }} testID={useBg ? 'share-photo-full' : 'share-template'}>
           {useBg ? <LinearGradient colors={[colors.overlay, colors.transparent, colors.transparent, colors.heroShade]} locations={[0, 0.22, 0.5, 1]} style={s.shade} /> : <LinearGradient colors={gradients[tint] as any} style={s.shade} />}
           {!useBg && <SkyLife width={cardWidth} height={cardHeight} birds={2} stars={7} />}
+          {FILTERS[photoFilter].colors && <LinearGradient pointerEvents="none" colors={FILTERS[photoFilter].colors as any} style={s.shade} testID="share-filter-overlay" />}
+          {STICKERS[sticker].icon && <View pointerEvents="none" style={s.stickerLayer} testID="share-sticker-overlay">
+            {STICKERS[sticker].key === 'frame' ? <>
+              <View style={s.stickerFrame} />
+              <View style={[s.stickerCorner, { top: 14, left: 14 }]}><Icon name="moon" size={16} color={colors.gold} /></View>
+              <View style={[s.stickerCorner, { bottom: 14, right: 14 }]}><Icon name="star" size={16} color={colors.gold} /></View>
+            </> : <>
+              <View style={[s.stickerBadge, { top: 62, left: 16 }]}><Icon name={STICKERS[sticker].icon as any} size={22} color={colors.gold} /></View>
+              <View style={[s.stickerBadge, s.stickerBadgeSm, { bottom: 92, right: 18 }]}><Icon name={STICKERS[sticker].icon as any} size={14} color={colors.gold} /></View>
+            </>}
+          </View>}
           <View style={s.cardTop}><Logo size={28} wordmark color={colors.heroInk} /><Badge text={isVerse ? 'SEAYAT' : completed ? 'SALAT TERCATAT' : isBadge ? `LENCANA ${badge.name.toUpperCase()}` : `LEVEL ${(level?.name || 'PEMULA').toUpperCase()}`} gold light /></View>
           <View style={s.middle}>
             {centerPhoto && <View style={s.photoFrame} testID="share-photo-center"><Image source={{ uri: photo }} style={s.photo} /><View style={s.photoRing} /></View>}
@@ -103,6 +138,8 @@ export function ShareComposer() {
       <T size={10} muted>{Platform.OS === 'web' ? t('share.photoHintWeb') : t('share.photoHint')}</T></View>
     <View style={s.group}><T size={12} weight="700">{t('share.template')}</T><View style={s.chipRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>{TEMPLATES.map((item, i) => <Tap key={item.key} testID={`share-template-${item.key}`} onPress={() => { setTemplate(i); if (photoMode === 'bg') setPhotoMode('center'); }} style={[s.thumb, template === i && !useBg && s.thumbOn]} accessibilityState={{ selected: template === i }}><Image source={item.image} style={s.thumbImage} /><T size={9} weight="700" color={colors.white}>{item.label}</T></Tap>)}</ScrollView></View></View>
     <View style={s.group}><T size={12} weight="700">{t('share.tone')}</T><View style={s.optionsRow}>{['Langit', 'Biru', 'Emas'].map((name, i) => <Button key={name} size="sm" testID={`share-style-${i}`} style={{ flex: 1 }} title={name} variant={tint === i ? (i === 2 ? 'gold' : 'primary') : 'secondary'} onPress={() => setTint(i)} />)}</View></View>
+    <View style={s.group}><T size={12} weight="700">{sec.filter}</T><View style={s.chipRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>{FILTERS.map((f, i) => <Tap key={f.key} testID={`share-filter-${f.key}`} onPress={() => setPhotoFilter(i)} style={[s.chip, photoFilter === i && s.chipOn]}><T size={11} weight="600" color={photoFilter === i ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{f.label[lang]}</T></Tap>)}</ScrollView></View></View>
+    <View style={s.group}><T size={12} weight="700">{sec.sticker}</T><View style={s.chipRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>{STICKERS.map((st, i) => <Tap key={st.key} testID={`share-sticker-${st.key}`} onPress={() => setSticker(i)} style={[s.stickerChip, sticker === i && s.chipOn]}>{st.icon && <Icon name={st.icon as any} size={14} color={sticker === i ? colors.onBrandPrimary : colors.gold} />}<T size={11} weight="600" color={sticker === i ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{st.label[lang]}</T></Tap>)}</ScrollView></View></View>
     <View style={s.group}><View style={s.rowBetween}><T size={12} weight="700">{t('share.caption')} · {captions.length}</T><Tap testID="share-caption-shuffle" onPress={() => setCaption(c => (c + 1 + Math.floor(Math.random() * (captions.length - 1))) % captions.length)} style={s.textBtn}><Icon name="shuffle" size={14} color={colors.onBrandSecondary} /><T size={11} weight="700" color={colors.onBrandSecondary}>{t('share.shuffle')}</T></Tap></View><View style={s.chipRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>{captions.map((text, i) => <Tap key={text} testID={`share-caption-${i}`} onPress={() => setCaption(i)} style={[s.chip, caption === i && s.chipOn]}><T size={11} weight="600" color={caption === i ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{text}</T></Tap>)}</ScrollView></View></View>
     {!isVerse && <View style={s.switchRow}>{!isBadge && <View style={s.switchItem}><T size={12}>{t('share.stats')}</T><Switch testID="share-stats-switch" value={showStats} onValueChange={setShowStats} trackColor={{ false: colors.solidStrong, true: colors.brandPrimary }} thumbColor={colors.white} ios_backgroundColor={colors.solidStrong} /></View>}<View style={s.switchItem}><T size={12}>{t('share.name')}</T><Switch testID="share-name-switch" value={showName} onValueChange={setShowName} trackColor={{ false: colors.solidStrong, true: colors.brandPrimary }} thumbColor={colors.white} ios_backgroundColor={colors.solidStrong} /></View><View style={s.switchItem}><T size={12}>{t('share.verse')}</T><Switch testID="share-verse-switch" value={showVerse} onValueChange={setShowVerse} trackColor={{ false: colors.solidStrong, true: colors.brandPrimary }} thumbColor={colors.white} ios_backgroundColor={colors.solidStrong} /></View></View>}
     <Button testID="share-confirm-button" title={Platform.OS === 'web' ? t('share.buttonWeb') : t('share.button')} icon="share-social" loading={busy} onPress={share} variant="gold" />
@@ -121,6 +158,9 @@ const useStyles = makeStyles(c => ({
   chipRow: { height: 56, flexShrink: 0, marginVertical: -8 }, chips: { gap: 8, alignItems: 'center' },
   thumb: { width: 72, height: 44, flexShrink: 0, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: c.border, alignItems: 'center', justifyContent: 'flex-end', backgroundColor: c.heroShade }, thumbOn: { borderColor: c.brandPrimary }, thumbImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.8 },
   chip: { height: 36, flexShrink: 0, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, chipOn: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary },
+  stickerChip: { height: 36, flexShrink: 0, flexDirection: 'row', gap: 6, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border },
+  stickerLayer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, stickerBadge: { position: 'absolute', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.28)', borderWidth: 1, borderColor: 'rgba(242,185,59,0.6)' }, stickerBadgeSm: { width: 30, height: 30, borderRadius: 15 },
+  stickerFrame: { position: 'absolute', top: 12, left: 12, right: 12, bottom: 12, borderRadius: 20, borderWidth: 1.5, borderColor: 'rgba(242,185,59,0.65)' }, stickerCorner: { position: 'absolute', width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.28)' },
   optionsRow: { flexDirection: 'row', gap: 10 }, switchRow: { flexDirection: 'row', gap: 8 }, switchItem: { flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, borderRadius: 16, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border },
   hint: { flexDirection: 'row', gap: 6, alignItems: 'center' },
 }));

@@ -5,6 +5,8 @@ import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
 import { IMG } from '@/src/assets';
 import { Badge, Button, Card, Icon, Page, Paper, T, Tap } from '@/src/components/ui';
+import { useI18n } from '@/src/i18n';
+import { screenText } from '@/src/screenText';
 
 type Step = { id: string; title: string; text: string; dua?: { arab: string; latin?: string; arti: string; label?: string } };
 type Phase = { key: string; title: string; short: string; icon: string; intro: string; steps: Step[] };
@@ -42,43 +44,51 @@ const ALL_STEPS = HAJJ_PHASES.flatMap(p => p.steps);
 /** Step-by-step Hajj & Umrah companion: what to do, what to read, and a tick-off progress tracker synced to the account. */
 export function Hajj() {
   const { settings, updateSettings, notify } = useApp(); const s = useStyles(); const { colors } = useTheme();
+  const { lang } = useI18n(); const tx = screenText(lang).hajj; const isId = lang === 'id';
+  const phaseTx = (key: string, fallback: { short: string; intro: string }) => (isId ? fallback : tx.phases[key] || fallback);
+  const stepTx = (step: Step) => {
+    const t = !isId ? tx.steps[step.id] : undefined;
+    return { title: t?.title || step.title, text: t?.text || step.text, duaLabel: t?.duaLabel || step.dua?.label, arti: t?.arti || step.dua?.arti };
+  };
   const done: string[] = settings.hajj_done || [];
   const nextStep = useMemo(() => ALL_STEPS.find(step => !done.includes(step.id)), [done]);
   const [phaseKey, setPhaseKey] = useState(() => HAJJ_PHASES.find(p => p.steps.some(st => st.id === nextStep?.id))?.key || 'persiapan');
   const [open, setOpen] = useState<string | null>(nextStep?.id || null); const [showForbidden, setShowForbidden] = useState(false);
   const phase = HAJJ_PHASES.find(p => p.key === phaseKey) || HAJJ_PHASES[0];
   const percent = Math.round((done.length / ALL_STEPS.length) * 100);
+  const forbidden = isId ? FORBIDDEN : tx.forbidden;
   const toggle = async (id: string) => {
     const next = done.includes(id) ? done.filter(d => d !== id) : [...done, id];
     const ok = await updateSettings({ hajj_done: next });
-    if (ok && !done.includes(id)) { const upcoming = ALL_STEPS.find(st => !next.includes(st.id)); if (upcoming) { setOpen(upcoming.id); const p = HAJJ_PHASES.find(ph => ph.steps.some(st => st.id === upcoming.id)); if (p) setPhaseKey(p.key); notify(`Selesai. Berikutnya: ${upcoming.title}`); } else notify('Masya Allah, seluruh langkah selesai. Semoga haji mabrur.'); }
+    if (ok && !done.includes(id)) { const upcoming = ALL_STEPS.find(st => !next.includes(st.id)); if (upcoming) { setOpen(upcoming.id); const p = HAJJ_PHASES.find(ph => ph.steps.some(st => st.id === upcoming.id)); if (p) setPhaseKey(p.key); notify(tx.doneNext(stepTx(upcoming).title)); } else notify(tx.allComplete); }
   };
-  const reset = async () => { if (await updateSettings({ hajj_done: [] })) { setPhaseKey('persiapan'); setOpen('p1'); notify('Progres manasik direset.'); } };
-  return <Page title="Haji & Umrah" back="pro" subtitle="Langkah demi langkah, doa demi doa.">
+  const reset = async () => { if (await updateSettings({ hajj_done: [] })) { setPhaseKey('persiapan'); setOpen('p1'); notify(tx.progressReset); } };
+  const nextPhase = nextStep ? HAJJ_PHASES.find(p => p.steps.includes(nextStep)) : undefined;
+  return <Page title={tx.title} back="pro" subtitle={tx.subtitle}>
     <ImageBackground source={IMG.hajj} style={s.hero} imageStyle={{ borderRadius: 28 }}><LinearGradient colors={[colors.transparent, colors.heroShade]} style={s.shade} />
-      <View style={{ padding: 18, gap: 8 }}><Badge text="PANDUAN BERTAHAP" gold icon="footsteps-outline" light />
-        <T size={22} weight="800" color={colors.heroInk}>{nextStep ? nextStep.title : 'Seluruh langkah selesai'}</T>
-        <T size={11} color={colors.heroMuted}>{nextStep ? `Langkah berikutnya · ${HAJJ_PHASES.find(p => p.steps.includes(nextStep))?.title}` : 'Semoga menjadi haji yang mabrur.'}</T>
+      <View style={{ padding: 18, gap: 8 }}><Badge text={tx.guideBadge} gold icon="footsteps-outline" light />
+        <T size={22} weight="800" color={colors.heroInk}>{nextStep ? stepTx(nextStep).title : tx.allDone}</T>
+        <T size={11} color={colors.heroMuted}>{nextStep && nextPhase ? tx.nextStepOf(phaseTx(nextPhase.key, nextPhase).short) : tx.allDoneSub}</T>
         <View style={s.progressRow}><View style={s.track}><View style={[s.fill, { width: `${percent}%` }]} /></View><T testID="hajj-progress-label" size={11} weight="700" color={colors.heroInk}>{done.length}/{ALL_STEPS.length} · {percent}%</T></View>
       </View></ImageBackground>
-    <View style={s.chipRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>{HAJJ_PHASES.map(p => { const on = p.key === phaseKey; const count = p.steps.filter(st => done.includes(st.id)).length; return <Tap key={p.key} testID={`hajj-phase-${p.key}`} onPress={() => setPhaseKey(p.key)} style={[s.chip, on && s.chipOn]} accessibilityState={{ selected: on }}><Icon name={p.icon} size={15} color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary} /><T size={12} weight="600" color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{p.short}</T><View style={[s.count, on && { backgroundColor: colors.glassStrong }]}><T size={9} weight="800" color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{count}/{p.steps.length}</T></View></Tap>; })}</ScrollView></View>
-    <T size={12} muted style={{ paddingHorizontal: 4 }}>{phase.intro}</T>
-    <View style={s.timeline}>{phase.steps.map((step, i) => { const isDone = done.includes(step.id); const isOpen = open === step.id; const isNext = nextStep?.id === step.id; return <View key={step.id} style={s.stepRow}>
+    <View style={s.chipRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>{HAJJ_PHASES.map(p => { const on = p.key === phaseKey; const count = p.steps.filter(st => done.includes(st.id)).length; return <Tap key={p.key} testID={`hajj-phase-${p.key}`} onPress={() => setPhaseKey(p.key)} style={[s.chip, on && s.chipOn]} accessibilityState={{ selected: on }}><Icon name={p.icon} size={15} color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary} /><T size={12} weight="600" color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{phaseTx(p.key, p).short}</T><View style={[s.count, on && { backgroundColor: colors.glassStrong }]}><T size={9} weight="800" color={on ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{count}/{p.steps.length}</T></View></Tap>; })}</ScrollView></View>
+    <T size={12} muted style={{ paddingHorizontal: 4 }}>{phaseTx(phase.key, phase).intro}</T>
+    <View style={s.timeline}>{phase.steps.map((step, i) => { const isDone = done.includes(step.id); const isOpen = open === step.id; const isNext = nextStep?.id === step.id; const st = stepTx(step); return <View key={step.id} style={s.stepRow}>
       <View style={s.rail}><Tap testID={`hajj-step-check-${step.id}`} onPress={() => toggle(step.id)} style={[s.checkbox, isDone && s.checkboxDone, isNext && !isDone && s.checkboxNext]} accessibilityRole="checkbox" accessibilityState={{ checked: isDone }}>{isDone ? <Icon name="checkmark" size={16} color={colors.onSuccess} /> : <T size={12} weight="800" color={isNext ? colors.onBrandPrimary : colors.onSurfaceTertiary}>{i + 1}</T>}</Tap>{i < phase.steps.length - 1 && <View style={[s.line, isDone && { backgroundColor: colors.success }]} />}</View>
       <Card style={[s.stepCard, isNext && !isDone && s.stepNext, isDone && s.stepDone]}>
-        <Tap testID={`hajj-step-${step.id}`} onPress={() => setOpen(isOpen ? null : step.id)} style={s.stepHead}><View style={{ flex: 1, gap: 2 }}>{isNext && !isDone && <T size={9} weight="800" color={colors.onBrandSecondary}>LANGKAH BERIKUTNYA</T>}<T size={14} weight="700" color={isDone ? colors.muted : colors.onSurface} style={isDone && { textDecorationLine: 'line-through' }}>{step.title}</T></View><Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} /></Tap>
+        <Tap testID={`hajj-step-${step.id}`} onPress={() => setOpen(isOpen ? null : step.id)} style={s.stepHead}><View style={{ flex: 1, gap: 2 }}>{isNext && !isDone && <T size={9} weight="800" color={colors.onBrandSecondary}>{tx.nextStepTag}</T>}<T size={14} weight="700" color={isDone ? colors.muted : colors.onSurface} style={isDone && { textDecorationLine: 'line-through' }}>{st.title}</T></View><Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} /></Tap>
         {isOpen && <View style={{ gap: 12 }}>
-          <T size={13} style={{ lineHeight: 20 }}>{step.text}</T>
-          {step.dua && <Paper style={s.dua}><T size={10} weight="800" color={colors.brandDeep}>{(step.dua.label || 'Doa').toUpperCase()}</T><T arabic paper size={22} style={{ textAlign: 'right', lineHeight: 40 }}>{step.dua.arab}</T>{step.dua.latin && <T paper size={12} weight="600" style={{ fontStyle: 'italic' }}>{step.dua.latin}</T>}<T paper muted size={12}>“{step.dua.arti}”</T></Paper>}
-          <Button testID={`hajj-step-done-${step.id}`} size="sm" title={isDone ? 'Tandai belum selesai' : 'Tandai selesai'} icon={isDone ? 'refresh-outline' : 'checkmark-circle-outline'} variant={isDone ? 'secondary' : 'primary'} onPress={() => toggle(step.id)} />
+          <T size={13} style={{ lineHeight: 20 }}>{st.text}</T>
+          {step.dua && <Paper style={s.dua}><T size={10} weight="800" color={colors.brandDeep}>{(st.duaLabel || 'Doa').toUpperCase()}</T><T arabic paper size={22} style={{ textAlign: 'right', lineHeight: 40 }}>{step.dua.arab}</T>{step.dua.latin && <T paper size={12} weight="600" style={{ fontStyle: 'italic' }}>{step.dua.latin}</T>}<T paper muted size={12}>“{st.arti}”</T></Paper>}
+          <Button testID={`hajj-step-done-${step.id}`} size="sm" title={isDone ? tx.markUndone : tx.markDone} icon={isDone ? 'refresh-outline' : 'checkmark-circle-outline'} variant={isDone ? 'secondary' : 'primary'} onPress={() => toggle(step.id)} />
         </View>}
       </Card>
     </View>; })}</View>
-    <Card style={{ gap: 12 }}><Tap testID="hajj-forbidden-toggle" onPress={() => setShowForbidden(v => !v)} style={s.stepHead}><Icon name="ban-outline" size={20} color={colors.error} /><T size={14} weight="700" style={{ flex: 1 }}>Larangan saat ihram</T><Icon name={showForbidden ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} /></Tap>
-      {showForbidden && FORBIDDEN.map((item, i) => <View key={item} style={s.forbiddenRow}><View style={s.num}><T size={11} weight="800" color={colors.onBrandPrimary}>{i + 1}</T></View><T size={13} style={{ flex: 1, lineHeight: 20 }}>{item}</T></View>)}</Card>
-    <Paper style={{ gap: 8, alignItems: 'center' }}><T size={10} weight="800" color={colors.brandDeep}>TALBIYAH</T><T arabic paper size={24} style={{ textAlign: 'center', lineHeight: 44 }}>{TALBIYAH.arab}</T><T paper muted size={12} style={{ textAlign: 'center' }}>“{TALBIYAH.arti}”</T></Paper>
-    {done.length > 0 && <Button testID="hajj-reset-button" title="Reset progres manasik" variant="secondary" icon="refresh-outline" onPress={reset} />}
-    <T muted size={10} style={{ textAlign: 'center' }}>Ringkasan edukatif berdasarkan manasik umum. Ikuti bimbingan pembimbing ibadah/KBIH resmi untuk pelaksanaan.</T>
+    <Card style={{ gap: 12 }}><Tap testID="hajj-forbidden-toggle" onPress={() => setShowForbidden(v => !v)} style={s.stepHead}><Icon name="ban-outline" size={20} color={colors.error} /><T size={14} weight="700" style={{ flex: 1 }}>{tx.forbiddenTitle}</T><Icon name={showForbidden ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} /></Tap>
+      {showForbidden && forbidden.map((item, i) => <View key={item} style={s.forbiddenRow}><View style={s.num}><T size={11} weight="800" color={colors.onBrandPrimary}>{i + 1}</T></View><T size={13} style={{ flex: 1, lineHeight: 20 }}>{item}</T></View>)}</Card>
+    <Paper style={{ gap: 8, alignItems: 'center' }}><T size={10} weight="800" color={colors.brandDeep}>{tx.talbiyah}</T><T arabic paper size={24} style={{ textAlign: 'center', lineHeight: 44 }}>{TALBIYAH.arab}</T><T paper muted size={12} style={{ textAlign: 'center' }}>“{isId ? TALBIYAH.arti : tx.talbiyahArti}”</T></Paper>
+    {done.length > 0 && <Button testID="hajj-reset-button" title={tx.resetButton} variant="secondary" icon="refresh-outline" onPress={reset} />}
+    <T muted size={10} style={{ textAlign: 'center' }}>{tx.footer}</T>
   </Page>;
 }
 const useStyles = makeStyles(c => ({

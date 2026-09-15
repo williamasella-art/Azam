@@ -5,9 +5,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useApp } from '@/src/AppContext';
 import { makeStyles, useTheme } from '@/src/theme';
 import { IMG } from '@/src/assets';
-import { Badge, Bg, Icon, IconBox, Paper, Section, Status, T, Tap } from '@/src/components/ui';
+import { Badge, Bg, Icon, IconBox, Logo, Paper, Section, Status, T, Tap } from '@/src/components/ui';
 import { PrayerSky } from '@/src/components/PrayerSky';
-import { Avatar } from '@/src/components/Avatar';
 import { useI18n } from '@/src/i18n';
 import { PulseFlame, SkyLife } from '@/src/components/SkyLife';
 import { StreakNudge } from '@/src/components/StreakNudge';
@@ -34,16 +33,15 @@ export function Home() {
   const firstName = user.guest ? '' : user.name.split(' ')[0];
   return <Bg>
     <View style={s.header}>
-      <Tap testID="home-profile-button" onPress={() => go('settings')} style={s.profile} haptic={false}>
-        <Avatar name={user.name} photoPath={user.photo_path} size={44} testID="home-avatar" />
-        <View style={{ flex: 1 }}><T muted size={11} numberOfLines={1}>{greet}, {salutation}{firstName ? ` ${firstName}` : ''}</T><T size={15} weight="800" style={s.greetingTitle} numberOfLines={1} testID="home-greeting">{t('home.salam')}</T></View>
+      <Tap testID="home-brand-button" onPress={() => go('settings')} style={s.brand} haptic={false} accessibilityLabel="Azam">
+        <Logo size={38} wordmark />
       </Tap>
       <View style={s.headerRight}><Tap testID="home-location-button" style={s.location} onPress={() => setModal({ type: 'location' })}><Icon name="location" size={13} color={colors.brandTertiary} /><T numberOfLines={1} size={12} weight="600" style={{ maxWidth: 72 }}>{settings.city}</T><Icon name="chevron-down" size={12} color={colors.muted} /></Tap>
       <Tap testID="home-settings-button" style={s.settings} onPress={() => go('settings')}><Icon name="settings-outline" size={20} /></Tap></View>
     </View>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
       <Animated.View entering={FadeInDown.duration(500)} style={s.contentInner}>
-        <View style={s.greeting}><View style={{ flex: 1 }}><T size={13} muted>{prayers.data?.hijri ? `${prayers.data.hijri.day} ${prayers.data.hijri.month.en} ${prayers.data.hijri.year} H` : t('home.byLocation')}</T><T size={12} muted>{now.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}</T></View>
+        <View style={s.greeting}><View style={{ flex: 1 }}><T size={17} weight="800" testID="home-greeting">{t('home.salam')}</T><T size={12} muted numberOfLines={1}>{greet}, {salutation}{firstName ? ` ${firstName}` : ''}</T><T size={11} muted>{prayers.data?.hijri ? `${prayers.data.hijri.day} ${prayers.data.hijri.month.en} ${prayers.data.hijri.year} H · ` : ''}{now.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}</T></View>
           <Tap testID="home-streak-button" onPress={() => go('progress')} style={s.streak}><LinearGradient colors={[colors.gold, colors.warning]} style={s.streakBg} /><PulseFlame size={18} color={colors.goldInk} /><T weight="800" color={colors.goldInk}>{progress.data?.streak ?? 0}</T><T size={10} weight="600" color={colors.goldInk}>{t('common.days')}</T></Tap></View>
         <ImageBackground source={IMG.heroBirds} style={s.hero} imageStyle={s.heroImage} testID="next-prayer-card" onLayout={e => setHeroSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
           <LinearGradient colors={[colors.transparent, colors.overlay, colors.heroShade]} locations={[0, 0.55, 1]} style={s.heroShade} />
@@ -89,7 +87,7 @@ export function Home() {
 }
 const useStyles = makeStyles(c => ({
   header: { paddingHorizontal: 22, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 72 }, headerRight: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  profile: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+  profile: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }, brand: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
   location: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, borderRadius: 14, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border }, settings: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: c.glass, borderWidth: 1, borderColor: c.border },
   content: { paddingHorizontal: 22, paddingBottom: 24 }, contentInner: { gap: 20 }, greeting: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }, greetingTitle: { letterSpacing: -0.5 },
   streak: { flexDirection: 'row', gap: 4, paddingHorizontal: 12, minHeight: 44, alignItems: 'center', borderRadius: 16, overflow: 'hidden' }, streakBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },

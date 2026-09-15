@@ -6,15 +6,17 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { fontFor, makeStyles, useTheme } from '@/src/theme';
 import { useApp } from '@/src/AppContext';
+import { useI18n } from '@/src/i18n';
 import { IMG } from '@/src/assets';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function T({ children, size = 14, weight = '400', muted, color, style, arabic, testID, paper, ...rest }: any) {
-  const { colors } = useTheme();
+  const { colors } = useTheme(); const { lang } = useI18n();
   const base = paper ? (muted ? colors.paperMuted : colors.onPaper) : (muted ? colors.onSurfaceTertiary : colors.onSurface);
+  const rtl = lang === 'ar' ? { writingDirection: 'rtl' as const, textAlign: 'right' as const } : null;
   return <Text testID={testID} {...rest} style={[{ fontFamily: arabic ? 'Amiri' : fontFor(weight), fontSize: size,
-    color: color || base, lineHeight: arabic ? size * 1.95 : size * 1.45 }, style]}>{children}</Text>;
+    color: color || base, lineHeight: arabic ? size * 1.95 : size * 1.45 }, rtl, style]}>{children}</Text>;
 }
 export function Icon({ name, size = 22, color }: { name: any; size?: number; color?: string }) {
   const { colors } = useTheme(); return <Ionicons name={name} size={size} color={color || colors.onSurface} />;

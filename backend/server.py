@@ -22,6 +22,26 @@ client = AsyncIOMotorClient(os.environ['MONGO_URL'])
 db = client[os.environ['DB_NAME']]
 http = httpx.AsyncClient(timeout=20, follow_redirects=True)
 
+# ---- Emergent managed push (SuprSend relay). Only the backend talks to the relay. ----
+PUSH_BASE_URL = 'https://integrations.emergentagent.com'
+push_http = httpx.AsyncClient(base_url=PUSH_BASE_URL, headers={'X-Push-Key': os.environ.get('EMERGENT_PUSH_KEY', 'placeholder')}, timeout=10.0)
+
+
+async def send_push(recipients: list[str], data: dict, idempotency_key: str | None = None) -> None:
+    if not recipients:
+        return
+    if 'title' not in data or 'message' not in data:
+        raise ValueError('data must include title and message')
+    payload: dict = {'recipients': recipients[:100], 'data': data}
+    if idempotency_key:
+        payload['$idempotency_key'] = idempotency_key
+    resp = await push_http.post('/api/v1/push/trigger', json=payload)
+    if resp.status_code == 401:
+        raise HTTPException(500, 'EMERGENT_PUSH_KEY missing or invalid')
+    if resp.status_code >= 500:
+        raise HTTPException(502, 'Push provider unavailable')
+    resp.raise_for_status()
+
 
 @asynccontextmanager
 async def lifespan(_app):
@@ -33,12 +53,14 @@ async def lifespan(_app):
     await db.cache.create_index('key', unique=True)
     await db.alarms.create_index([('user_id', 1), ('id', 1)], unique=True)
     await db.photos.create_index([('user_id', 1), ('path', 1)], unique=True)
+    await db.sunnah_logs.create_index([('user_id', 1), ('date', 1), ('key', 1)], unique=True)
     try:
         await run_in_threadpool(init_storage)
     except Exception as e:  # storage stays lazy-initialised on first upload
         print('object storage init deferred:', e)
     yield
     await http.aclose()
+    await push_http.aclose()
     client.close()
 
 
@@ -379,4 +401,98 @@ async def delete_alarm(alarm_id: str, user=Depends(current_user)):
 # Import route registration after shared database and auth definitions.
 from worship import register_routes  # noqa: E402
 register_routes(router, db, http, current_user, Data, get_settings)
+
+
+# ---- Push registration + smart sunnah nudges (missed Tahajud/Dhuha two days running). ----
+class RegisterPushBody(BaseModel):
+    user_id: str = Field(min_length=1, max_length=120)
+    platform: Literal['android', 'ios', 'web']
+    device_token: str = Field(min_length=1, max_length=4096)
+
+
+@router.post('/register-push', status_code=201)
+async def register_push(body: RegisterPushBody):
+    resp = await push_http.post('/api/v1/push/users/register', json=body.model_dump())
+    if resp.status_code == 401:
+        raise HTTPException(500, 'EMERGENT_PUSH_KEY missing or invalid')
+    if resp.status_code >= 500:
+        raise HTTPException(502, 'Push provider unavailable')
+    resp.raise_for_status()
+    return {'status': 'registered'}
+
+
+@router.put('/sunnah/checkin', response_model=Data)
+async def sunnah_checkin(body: SunnahCheckin, user=Depends(current_user)):
+    settings = await get_settings(user)
+    from zoneinfo import ZoneInfo
+    today = datetime.now(ZoneInfo(settings.timezone)).date().isoformat()
+    if body.day > today:
+        raise HTTPException(422, 'Belum bisa dicatat untuk hari mendatang.')
+    key = {'user_id': user['user_id'], 'date': body.day, 'key': body.key}
+    existing = await db.sunnah_logs.find_one(key, {'_id': 0})
+    if existing:
+        await db.sunnah_logs.delete_one(key)
+        return Data(data={'done': False})
+    await db.sunnah_logs.update_one(key, {'$set': {'completed_at': datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    return Data(data={'done': True})
+
+
+@router.get('/sunnah/status', response_model=Data)
+async def sunnah_status(user=Depends(current_user)):
+    from zoneinfo import ZoneInfo
+    settings = await get_settings(user)
+    today = datetime.now(ZoneInfo(settings.timezone)).date()
+    since = (today - timedelta(days=8)).isoformat()
+    logs = await db.sunnah_logs.find({'user_id': user['user_id'], 'date': {'$gte': since}}, {'_id': 0}).to_list(200)
+    by_day: dict = {}
+    for log in logs:
+        by_day.setdefault(log['date'], []).append(log['key'])
+    return Data(data={'today': by_day.get(today.isoformat(), []), 'recent': by_day, 'date': today.isoformat()})
+
+
+NUDGE_COPY = {
+    'tahajud': {
+        'id': ('Rindu sepertiga malam?', 'Dua malam terlewat. Malam ini, bangun sebentar untuk Tahajud — cukup dua rakaat.'),
+        'en': ('Missing the last third of the night?', 'Two nights passed. Tonight, rise for a short Tahajjud — just two rak’ahs.'),
+        'ms': ('Rindu sepertiga malam?', 'Dua malam terlepas. Malam ini, bangun sebentar untuk Tahajud — cukup dua rakaat.'),
+        'ar': ('اشتقت إلى قيام الليل؟', 'مرّت ليلتان. الليلة، قم لتهجّد قصير — ركعتان تكفيان.'),
+    },
+    'dhuha': {
+        'id': ('Pembuka rezeki menantimu', 'Dua pagi terlewat. Selipkan dua rakaat Dhuha hari ini, pembuka pintu rezeki.'),
+        'en': ('An opener of provision awaits', 'Two mornings passed. Slip in two rak’ahs of Duha today — an opener of provision.'),
+        'ms': ('Pembuka rezeki menanti', 'Dua pagi terlepas. Selitkan dua rakaat Dhuha hari ini, pembuka pintu rezeki.'),
+        'ar': ('فاتحة الرزق تنتظرك', 'مرّ صباحان. صلِّ ركعتي الضحى اليوم — فاتحة للرزق.'),
+    },
+}
+
+
+@router.post('/sunnah/nudge-check', response_model=Data)
+async def sunnah_nudge_check(user=Depends(current_user)):
+    """On app open: if Tahajud/Dhuha reminders are on but missed two days running, send one gentle push (deduped per day)."""
+    from zoneinfo import ZoneInfo
+    settings = await get_settings(user)
+    lang = settings.language if settings.language in ('id', 'en', 'ms', 'ar') else 'id'
+    reminders = set(settings.sunnah_reminders or [])
+    today = datetime.now(ZoneInfo(settings.timezone)).date()
+    d1, d2 = (today - timedelta(days=1)).isoformat(), (today - timedelta(days=2)).isoformat()
+    logged = {(log['date'], log['key']) for log in await db.sunnah_logs.find({'user_id': user['user_id'], 'date': {'$in': [d1, d2]}}, {'_id': 0}).to_list(50)}
+    sent = []
+    for key in ('tahajud', 'dhuha'):
+        if key not in reminders:
+            continue
+        if (d1, key) in logged or (d2, key) in logged:
+            continue  # kept it up at least once in the last two days
+        nudge_id = f'{user["user_id"]}:{today.isoformat()}:{key}'
+        if await db.sunnah_nudges.find_one({'_id': nudge_id}):
+            continue
+        title, message = NUDGE_COPY[key][lang]
+        try:
+            await send_push([user['user_id']], {'title': title, 'message': message, 'action_url': '/sunnah'}, idempotency_key=nudge_id)
+            await db.sunnah_nudges.insert_one({'_id': nudge_id, 'created_at': datetime.now(timezone.utc).isoformat()})
+            sent.append(key)
+        except Exception as e:  # push failure must never block app open
+            print('sunnah nudge push failed (non-blocking):', e)
+    return Data(data={'nudged': sent})
+
+
 app.include_router(router)
