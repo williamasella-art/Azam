@@ -116,6 +116,15 @@ class Settings(BaseModel):
     last_verse: int = Field(default=1, ge=1, le=286)
     language: Literal['id', 'en', 'ms', 'ar'] = 'id'
     sunnah_reminders: list[Literal['tahajud', 'dhuha', 'witir', 'rawatib']] = Field(default_factory=list, max_length=4)
+    sunnah_since: str | None = None
+
+
+SUNNAH_KEYS = ('tahajud', 'dhuha', 'witir', 'rawatib')
+
+
+class SunnahCheckin(BaseModel):
+    key: Literal['tahajud', 'dhuha', 'witir', 'rawatib']
+    day: str = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
 
 
 async def current_user(authorization: str | None = Header(default=None)):
